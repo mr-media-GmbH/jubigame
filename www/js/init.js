@@ -7,6 +7,7 @@ var context,
     batImage,
     stage,
     animation,
+    container,
     deathAnimation,
     spriteSheet,
     enemyXPos = 100,
@@ -127,20 +128,23 @@ function createEnemy()
 	animation = new createjs.Sprite(spriteSheet, "flap");
     animation.regX = 99;
     animation.regY = 58;
-    animation.x = enemyXPos;
-    animation.y = enemyYPos;
     animation.gotoAndPlay("flap");
-    stage.addChildAt(animation,1);
+    createjs.Tween.get(animation, {loop: true}).to({y: animation.y+Math.floor((Math.random()*50)*3)}, 750, Ease.backInOut).call(handleComplete);
     
-    animation.alpha = 0;
-    createjs.Tween.get(animation, {loop: true}).to({alpha: 1}, 750, Ease.getPowIn(2.2)).call(handleComplete);
+    container = new createjs.Container();
+    container.addChild(animation);
+    enemyXPos = Math.floor((Math.random() * WIDTH));
+    container.x = enemyXPos;
+    container.y = enemyYPos;
+console.log( container.x );
+    stage.addChildAt(container,1);
+    
+    container.alpha = 0;
+    createjs.Tween.get(container, {loop: false}).to({alpha: 1}, 750, Ease.getPowIn(2.2)).call(handleComplete);
     function handleComplete() {
         //Tween complete
-//console.log(this.alpha);
-//        this.alpha = this.alpha < 1 ? 1 : 0;
-//console.log(this.alpha);
-//console.log(this);
-    }}
+   }
+}
 
 function batDeath()
 {
@@ -173,8 +177,8 @@ function tickEvent()
 		enemyYPos += enemyYSpeed;
 	}
 
-	animation.x = enemyXPos;
-	animation.y = enemyYPos;
+	container.x = enemyXPos;
+	container.y = enemyYPos;
 }
 
 function handleMouseMove(event)
@@ -199,8 +203,8 @@ function handleMouseDown(event)
     //Obtain Shot position
     var shotX = Math.round(event.clientX);
     var shotY = Math.round(event.clientY);
-    var spriteX = Math.round(animation.x);
-    var spriteY = Math.round(animation.y);
+    var spriteX = Math.round(container.x);
+    var spriteY = Math.round(container.y);
 
     // Compute the X and Y distance using absolte value
     var distX = Math.abs(shotX - spriteX);
@@ -210,7 +214,7 @@ function handleMouseDown(event)
     if(distX < 30 && distY < 59 )
     {
     	//Hit
-    	stage.removeChild(animation);
+    	stage.removeChild(container);
     	batDeath();
     	score += 100;
     	scoreText.text = "1UP: " + score.toString();
@@ -240,7 +244,7 @@ function updateTime()
 	{
 		//End Game and Clean up
 		timerText.text = "GAME OVER";
-		stage.removeChild(animation);
+		stage.removeChild(container);
 		stage.removeChild(crossHair);
         createjs.Sound.removeSound("background");
         var si =createjs.Sound.play("gameOverSound");
