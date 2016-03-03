@@ -1,7 +1,7 @@
 var context,
     queue,
-    WIDTH = 1024,
-    HEIGHT = 768,
+    WIDTH = 640,//window.innerWidth,
+    HEIGHT = 480,//window.innerHeight,
     mouseXPosition,
     mouseYPosition,
     batImage,
@@ -23,6 +23,8 @@ var context,
 
 window.onload = function()
 {
+    app.initialize();
+    
     /*
      *      Set up the Canvas with Size and height
      *
@@ -71,8 +73,8 @@ function queueLoaded(event)
 {
 
     // Add background image
-    var backgroundImage = new createjs.Bitmap(queue.getResult("backgroundImage"))
-    stage.addChild(backgroundImage);
+//    var backgroundImage = new createjs.Bitmap(queue.getResult("backgroundImage"))
+//    stage.addChild(backgroundImage);
 
     //Add Score
     scoreText = new createjs.Text("1UP: " + score.toString(), "36px Arial", "#FFF");
@@ -129,7 +131,7 @@ function createEnemy()
     animation.regX = 99;
     animation.regY = 58;
     animation.gotoAndPlay("flap");
-    createjs.Tween.get(animation, {loop: true}).to({y: animation.y+Math.floor((Math.random()*50)*3)}, 750, Ease.backInOut).call(handleComplete);
+    createjs.Tween.get(animation, {loop: true}).to({y: animation.y+Math.floor((Math.random()*50))}, 750, Ease.backInOut).call(handleComplete);
     
     container = new createjs.Container();
     container.addChild(animation);
@@ -226,8 +228,8 @@ function handleMouseDown(event)
 
     	//Create new enemy
     	var timeToCreate = Math.floor((Math.random()*3500)+1);
-	    setTimeout(createEnemy,timeToCreate);
-
+//	    setTimeout(createEnemy,timeToCreate);
+        createEnemy();
     } else
     {
     	//Miss
@@ -247,12 +249,12 @@ function updateTime()
 		stage.removeChild(container);
 		stage.removeChild(crossHair);
         createjs.Sound.removeSound("background");
-        var si =createjs.Sound.play("gameOverSound");
+        var si = createjs.Sound.play("gameOverSound");
 		clearInterval(gameTimer);
 	}
 	else
 	{
 		timerText.text = "Time: " + gameTime
-        createjs.Sound.play("tick");
+//        createjs.Sound.play("tick");
 	}
 }
