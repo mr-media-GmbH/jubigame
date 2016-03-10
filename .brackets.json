@@ -1,0 +1,9 @@
+{
+    "jscodehints.detectedExclusions": [
+        "/Volumes/Daten/projekte/phonegap/jubigame/www/spec/lib/jasmine-1.2.0/jasmine.js",
+        "/Volumes/Daten/projekte/phonegap/jubigame/platforms/ios/cordova/lib/plugman/Plugman.js",
+        "/Volumes/Daten/projekte/phonegap/jubigame/platforms/ios/cordova/lib/plugman/pluginHandlers.js",
+        "/Volumes/Daten/projekte/phonegap/jubigame/www/js/index.js",
+        "/Volumes/Daten/projekte/phonegap/jubigame/www/spec/lib/jasmine-1.2.0/jasmine-html.js"
+    ]
+}
