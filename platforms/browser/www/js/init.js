@@ -1,26 +1,36 @@
+var WIDTH = 640,//window.innerWidth,
+    HEIGHT = 480,//window.innerHeight,
+    speed = 0.4, // overall game speed
+    gameTime = 30,
+    reloadTimeout = 3000,
+    fullMag = 8,
+    enemyScoreArr = [1, 2, 5],
+    enemyXVelsArr = [9, 7, 5],
+    enemyScaleArr = [1, 0.7, 0.45];
+
+
+    
 var touchSupported,
     context,
     queue,
-    WIDTH = 640,//window.innerWidth,
-    HEIGHT = 480,//window.innerHeight,
     Image,
     stage,
+    enemies = [],
     animation,
     container,
     deathAnimation,
     spriteSheet,
-    enemyXPos = 0,
-    enemyYPos = 100,
-    speed = 1.2, // overall game speed
     score = 0,
     scoreText,
+    shotsLeft = fullMag,
+    reloading,
     gameTimer,
-    gameTime = 0,
     timerText,
+    prmQue = {},
     Ease = createjs.Ease;
 
-window.onload = function()
-{
+window.onload = function() {
+
     app.initialize();
 
     /*
@@ -33,6 +43,12 @@ window.onload = function()
     context.canvas.height = HEIGHT;
     stage = new createjs.Stage("myCanvas");
     
+    // hide mouse cursor when roll over the stage
+    stage.canvas.style.cursor = "none";
+    
+    // keep tracking the mouse even when it leaves the canvas
+    stage.mouseMoveOutside = true;
+
     // enable touch interactions if supported on the current device:
 	createjs.Touch.enable(stage);
 
@@ -70,8 +86,7 @@ window.onload = function()
 
 }
 
-function queueLoaded(event)
-{
+function queueLoaded(event) {
 
     // Add background image
 //    var backgroundImage = new createjs.Bitmap(queue.getResult("backgroundImage"))
@@ -85,7 +100,7 @@ function queueLoaded(event)
 
     //Ad Timer
     timerText = new createjs.Text("Time: " + gameTime.toString(), "36px Arial", "#FFF");
-    timerText.x = 800;
+    timerText.x = 500;
     timerText.y = 10;
     stage.addChild(timerText);
 
@@ -107,13 +122,12 @@ function queueLoaded(event)
     	"animations": {"die": [0,7, false,1 ] }
     });
 
-    // Create  sprite
-    enemies = [];
-    enemies.push(createEnemy());
-    enemies.push(createEnemy());
+    // Create  sprites
     enemies.push(createEnemy());
     enemies.push(createEnemy());
 //console.log(enemies);
+    
+//    toggleCache(1);
     
     // Create crosshair
     crossHair = new createjs.Bitmap(queue.getResult("crossHair"));
@@ -127,13 +141,13 @@ function queueLoaded(event)
     stage.addChild(crossHair);
 
     // Add ticker
-    createjs.Ticker.setFPS(Math.round(12 * speed));
+    createjs.Ticker.setFPS(16/*Math.round(12 * speed)*/);
     createjs.Ticker.addEventListener('tick', stage);
     createjs.Ticker.addEventListener('tick', tickEvent);
 
     // Set up events AFTER the game is loaded
     touchSupported = 'ontouchstart' in window;
-console.log(touchSupported);
+//console.log(touchSupported);
     //var startEvent = touchSupported ? 'touchstart' : 'mousedown';
     //var moveEvent = touchSupported ? 'touchmove' : 'mousemove';
     //var endEvent = touchSupported ? 'touchend' : 'mouseup';
@@ -146,73 +160,86 @@ console.log(touchSupported);
     window.onmousedown = handleMouseDown;
 }
 
-function createEnemy()
-{
-	// create inner animation
-    animation = new createjs.Sprite(spriteSheet, "flap");
-    animation.regX = 99;
-    animation.regY = 58;
-    animation.gotoAndPlay("flap");
+function createEnemy() {
+//    window.setTimeout(function() {
     
-    // create animation container
-    enemy = new createjs.Container();
-    enemy.addChild(animation);
+        // create inner animation
+        animation = new createjs.Sprite(spriteSheet, "flap");
+        animation.regX = 99;
+        animation.regY = 58;
+        animation.gotoAndPlay("flap");
 
-    // fade in
-//    enemy.alpha = 0;
-//    createjs.Tween.get(enemy, {loop: false}).to({alpha: 1}, 750, Ease.getPowIn(2.2)).call(handleComplete);
-    function handleComplete() {
-        //Tween complete
-    }
+        // create animation container
+        var itm = new createjs.Container();
+        itm.addChild(animation);
 
-    // set up direction, z-level and associated speed
-    enemy.xDir = getRandomInt(0, 1) ? -1 : 1; // -1 = move left, +1 = move right
-    //enemy.xDir = uniqEnemyProp('xDir');
-//console.log('uniqEnemyProp(xDir) ' + uniqEnemyProp('xDir'));
+        // set up direction, z-level and associated speed
+        itm.xDir = getRandomInt(0, 1) ? -1 : 1; // -1 = move left, +1 = move right
+        itm.zDist = getEvenedRandInt('zDist', 0, 2);//getRandomInt(0, 2);
+
+        //itm.scaleX = (1 / (itm.zDist + 1)).toFixed(1);
+        //itm.scaleY = (1 / (itm.zDist + 1)).toFixed(1);
+        itm.scaleX = enemyScaleArr[itm.zDist];
+        itm.scaleY = enemyScaleArr[itm.zDist];
+
+        itm.width = itm.getTransformedBounds().width;
+        itm.height = itm.getTransformedBounds().height;
     
-    enemy.zDist = getRandomInt(0, 2);
-    
-    enemy.scaleX = (1 / (enemy.zDist + 1)).toFixed(1);
-    enemy.scaleY = (1 / (enemy.zDist + 1)).toFixed(1);
-    
-    enemy.width = enemy.getTransformedBounds().width;
-    enemy.height = enemy.getTransformedBounds().height;
-    
-    enemy.x = enemy.xDir != 1
-        ? WIDTH + enemy.width
-        : enemy.width * -1;
-    enemy.y = getRandomInt(enemy.height, HEIGHT - enemy.height);
+        itm.score = enemyScoreArr[itm.zDist];
 
-    enemyXVelsArr = [10, 7, 5];
-    enemy.xVel = Math.round(enemyXVelsArr[enemy.zDist]);
-    
-    // up/down movement
-    createjs.Tween.get(animation, {loop: true}).to({y: animation.y + getRandomInt(enemy.height/2, enemy.height)}, getRandomInt(700, 850), Ease.backInOut).call(handleComplete);
+        itm.x = itm.xDir != 1
+            ? WIDTH + itm.width
+            : itm.width * -1;
+        itm.y = getEvenedRandInt('y', itm.height, HEIGHT - itm.height, 50);
 
-    // mouse down actions
-    enemy.on("mousedown", function (evt) {
-        console.log(evt.currentTarget.id);
-        Death(evt.currentTarget);
-        stage.removeChild(evt.currentTarget);
-    	
-        enemies.remove(evt.currentTarget.id);
-        enemies.push(createEnemy());
-    	
-        score += 100;
-    	scoreText.text = "1UP: " + score.toString();
+        var b = Math.round(enemyXVelsArr[itm.zDist] * speed);
+        var a = b - (b / 100 * 15);
+        var c = b + (b / 100 * 15);
+        itm.xVel = getEvenedRandInt('xVel', a, c);
+//console.log('itm.xVel ' + itm.xVel);
+//console.log('a ' + a + ' b ' + b + ' c ' + c);
 
-        speed = speed + 0.1;
-        createjs.Ticker.setFPS(Math.round(12 * speed));
-console.log("FPS: " + createjs.Ticker.getFPS());
-    });
-    stage.addChildAt(enemy, 1);
-    stage.setChildIndex(enemy, enemy.zDist);
+        // up/down movement
+        createjs.Tween.get(animation, {loop: true}).to({y: animation.y + getRandomInt(itm.height/2, itm.height-itm.height/4)}, getRandomInt(700, 850), Ease.backInOut).call(function() {});
 
-    return {'id': enemy.id, 'xDir': enemy.xDir, 'zDist': enemy.zDist};
+        // mouse down actions
+        itm.on("mousedown", function (evt) {
+    //console.log(evt.currentTarget.id);
+            if(reloading) return;
+            Death(evt.currentTarget);
+            createjs.Sound.play("deathSound");
+            stage.removeChild(evt.currentTarget);
+            enemies.removeObj('id', evt.currentTarget.id);
+            
+            enemies.push(createEnemy());
+            enemies.push(createEnemy());
+
+            score += 100 * evt.currentTarget.score;
+            scoreText.text = "1UP: " + score.toString();
+            
+            speed = speed + 0.05;
+            createjs.Ticker.setFPS(16/*Math.round(12 * speed)*/);
+    //console.log("FPS: " + createjs.Ticker.getFPS());
+        });
+
+        stage.addChildAt(itm, 1);
+        stage.setChildIndex(itm, itm.zDist);
+
+        debug: {
+            //console.log('itm.id: ' +itm.id );
+            // console.log((getEvenedRandInt('xDir', 0, 1) ? -1 : 1) + ' : ' + (getRandomInt(0, 1) ? -1 : 1));
+            // console.log('itm.xDir ' + itm.xDir);
+            // console.log('findEnemyProp() ' + findEnemyProp('xDir', itm.xDir));
+            // console.log('findEnemyProp() ' + findEnemyProp('zDist', getRandomInt(0, 2)));
+            // console.log(prmQue);
+            // console.log(prmQue[6].zDist);
+            // console.log(itm.zDist + ' | ' + getRandomInt(0, 2));
+        }
+        return itm;
+//    }, 1500/*getEvenedRandInt('enTime', 500, 2500, 250)*/);
 }
 
-function Death(_target)
-{
+function Death(_target) {
     deathAnimation = new createjs.Sprite(DeathSpriteSheet, "die");
     deathAnimation.regX = 99;
     deathAnimation.regY = 58;
@@ -222,81 +249,75 @@ function Death(_target)
     deathAnimation.scaleY = (1 / (_target.zDist + 1)).toFixed(1);
     deathAnimation.gotoAndPlay("die");
     stage.addChild(deathAnimation);
-	createjs.Sound.play("deathSound");
 }
 
-function tickEvent()
-{
-    // iterate through the enemies and move them according to their velocity and zLevel
-    var l = stage.getNumChildren() - 1;
-    for (var i = 0; i < l; i++) {
-        var shape = stage.getChildAt(i);
-        
-        if( typeof shape != 'undefined' && enemiesById(shape.id) ) {
-/*
-console.log( "shape.id " + shape.id );
-console.log( "shape.xDir " + shape.xDir );
-console.log( "shape.zDist " + shape.zDist );
-console.log( "shape.xVel " + shape.xVel );
-console.log( "shape.x " + shape.x );
-console.log( "shape.scaleX " + shape.scaleX );
-console.log( "shape.scaleY " + shape.scaleY );
-*/
+function tickEvent() {
+    // iterate through enemies
+    for (var i = 0; i < enemies.length; i++) {
+        var itm = enemies[i];
 
-            // check out of bounds
-            var outOfBounds = 0;
-            if(shape.xDir == 1) {
-                // moves right
-                if(shape.x >= WIDTH + shape.width) {
-                    outOfBounds = 1;
-                }
-            } else {
-                 // moves left
-                if(shape.x <= shape.width * -1) {
-                    outOfBounds = 1;
-                }
+        // check out of bounds
+        var outOfBounds = 0;
+        if(itm.xDir == 1) {
+            // moves right
+            if(itm.x >= WIDTH + itm.width) {
+                outOfBounds = 1;
             }
-            if(outOfBounds) {
-console.log( "outOfBounds shape.id " + shape.id );
-                stage.removeChild(shape);
-                enemies.remove(shape.id);
+        } else {
+             // moves left
+            if(itm.x <= itm.width * -1) {
+                outOfBounds = 1;
+            }
+        }
+
+        if(outOfBounds) {
+//console.log( "outOfBounds itm.id " + itm.id );
+            stage.removeChild(itm);
+            enemies.removeObj('id', itm.id);
+            if(gameTime > 0) {
                 enemies.push(createEnemy());
-                continue;
             }
-//console.log(enemies);
-//console.log(enemies.length);
+            continue;
+        }
 
+        // move
+        itm.x += itm.xVel * itm.xDir;
 
-            // move
-            shape.x += shape.xVel * shape.xDir;
-//console.log(shape.xVel * shape.xDir);
-//console.log(shape.scaleX*enemy.zDist/10);            
-            //shape.scaleX += *enemy.zDist/10;
-//console.log('-------');
-
+        debug: {
+            // console.log(enemies);
+            // console.log(enemies.length);
+            // console.log( "itm.id " + itm.id );
+            // console.log( "itm.xDir " + itm.xDir );
+            // console.log( "itm.zDist " + itm.zDist );
+            // console.log( "itm.xVel " + itm.xVel );
+            // console.log( "itm.x " + itm.x );
+            // console.log( "itm.scaleX " + itm.scaleX );
+            // console.log( "itm.scaleY " + itm.scaleY );
+            //console.log('-------');
         }
     }
 }
 
-function handleMouseMove(event)
-{
+function handleMouseMove(event) {
     crossHair.x = event.clientX;
     crossHair.y = event.clientY;
+//console.log('crossHair.visible ' + crossHair.visible);
+//console.log('crossHair.x ' + crossHair.x);
+//console.log('crossHair.y ' + crossHair.y);
 }
 
-function handleMouseDown(event)
-{
+function handleMouseDown(event) {
 //console.log(event);
+    if(reloading) return;
+    
     
     // touch device
     if(touchSupported) {
-console.log(event.touches[0].clientX);
+//console.log(event.touches[0].clientX);
         crossHair.x = event.touches[0].clientX;
         crossHair.y = event.touches[0].clientY;
         crossHair.alpha = 1;
-        createjs.Tween.get(crossHair).to({alpha: 0}, 400, Ease.getPowIn(2.2)).call(function() {
-           // crossHair.alpha = 0;
-        });
+        createjs.Tween.get(crossHair).to({alpha: 0}, 400, Ease.getPowIn(2.2)).call(function() {});
         
         createjs.Tween.get(crossHair).to({scaleX: 1.3, scaleY: 1.3}, 400, Ease.getPowIn(2.2)).call(function() {
             crossHair.scaleX = 0.5;
@@ -306,9 +327,21 @@ console.log(event.touches[0].clientX);
     
     //Play Gunshot sound
     createjs.Sound.play("shot");
+    
+    // mag
+    shotsLeft -= 1;
+    if(shotsLeft < 1) {
+        crossHair.visible = false;
+        reloading = window.setTimeout(function() {
+            clearInterval(reloading);
+            reloading = false;
+            shotsLeft = fullMag;
+            crossHair.visible = true;
+        }, reloadTimeout);
+    }
 
     //Obtain Shot position
-    var shotX = Math.round(event.clientX);
+/*    var shotX = Math.round(event.clientX);
     var shotY = Math.round(event.clientY);
     var spriteX = Math.round(enemy.x);
     var spriteY = Math.round(enemy.y);
@@ -336,37 +369,137 @@ console.log(event.touches[0].clientX);
 //    	scoreText.text = "1UP: " + score.toString() + touchSupported.toString();
 
     }
+*/
 }
 
-function updateTime()
-{
-	gameTime += 1;
-	if(gameTime > 60)
-	{
-		//End Game and Clean up
+function updateTime() {
+	gameTime -= 1;
+	if(gameTime <= 0) {
+        clearInterval(gameTimer);
+
+        //End Game and Clean up
 		timerText.text = "GAME OVER";
-		stage.removeChild(enemy);
-		stage.removeChild(crossHair);
+
+        for (var idx in enemies) {
+            Death(enemies[idx]);
+            stage.removeChild(enemies[idx]);
+        }
+        enemies = [];
+		
+        stage.removeChild(crossHair);
+        
         createjs.Sound.removeSound("background");
 //        var si = createjs.Sound.play("gameOverSound");
-		clearInterval(gameTimer);
-	}
-	else
-	{
+		
+ 	} else {
 		timerText.text = "Time: " + gameTime
 //        createjs.Sound.play("tick");
 	}
 }
 
-function uniqEnemyProp(_name) { 
-    for (var i = 0; i < enemies.length; i++) {
-        var x = enemiesById(enemies[i].id);
-console.log(enemies[i]);
-console.log(enemies[i].id);
-        var y = eval('x.'+_name);
-//console.log(x.xDir);
-//console.log('y '+y);
+function getEvenedRandInt(itmAtr, _randMin, _randMax, _raster, _maxQLen) {
+
+    if(_maxQLen === undefined) {
+        _maxQLen = 6;
     }
+    var maxQLen = Math.round(_maxQLen);
+    var randMin = Math.round(_randMin);
+    var randMax = Math.round(_randMax);
+    var raster = Math.round(_raster);
+    var qLen = randMax - randMin <= maxQLen ? randMax - randMin : maxQLen;
+    var randAtr = getRandomInt(randMin, randMax);
+/*console.log('randMax ' + randMax + typeof _randMax);
+console.log('randAtr ' + randAtr + typeof randAtr);
+console.log('qLen ' + qLen + typeof qLen);
+*/
+
+    if(prmQue[itmAtr] === undefined) {
+        prmQue[itmAtr] = [];
+    }
+ 
+    if(raster) {
+        randAtr = Math.round(randAtr / raster) * raster;
+//console.log('randAtr raster ' + randAtr);
+    }
+
+    // check duplicates
+    var f = prmQue[itmAtr].indexOf(randAtr);
+    if(f != -1) {
+        if(prmQue[itmAtr].length >= qLen) {
+            // pick first, clear queue
+            randAtr = prmQue[itmAtr].shift();
+            prmQue[itmAtr] = [];
+        } else {
+//            if() {
+                
+                var x = 0;
+                while(prmQue[itmAtr].indexOf(randAtr) != -1) {
+                    x++;
+
+                    randAtr = raster
+                        ? Math.round(getRandomInt(randMin, randMax) / raster) * raster
+                        : getRandomInt(randMin, randMax);
+
+//console.log('randAtr '+randAtr);
+//console.log('indexOf(randAtr) '+f);
+//console.log('indexOf(randAtr) '+prmQue[itmAtr].indexOf(randAtr));
+//console.log('x '+x);
+                    if(x > 100) break;
+                }
+//            }
+        }
+    }
+//console.log(prmQue[itmAtr]);
+
+    // add to list
+    prmQue[itmAtr].push(randAtr);
+//console.log(prmQue);
+//console.log('pushed ' + itmAtr + ' : ' + Math.round(randAtr));
+
+    return Math.round(randAtr);
+}
+
+function getRandomInt(min, max) { 
+    return Math.floor(Math.random() * (max - min +1)) + min; 
+}
+
+// Remove Element
+Array.prototype.removeObj = function(key, val) {
+    var i;
+    outerloop: for (var idx in this) {
+        // skip loop if the property is from prototype
+        if (!this.hasOwnProperty(idx)) continue;
+
+        var obj = this[idx];
+        for (var prop in obj) {
+            if(!obj.hasOwnProperty(prop)) continue;
+
+            if(key == prop && obj[prop] === val) {
+                i = idx;
+                break outerloop;
+            }
+        }
+    }    
+    
+    return i>-1 ? this.splice(i, 1) : [];
+};
+
+/* unused *
+function findEnemyProp(key, val) { 
+    for (var idx in enemies) {
+        // skip loop if the property is from prototype
+        if (!enemies.hasOwnProperty(idx)) continue;
+
+        var obj = enemies[idx];
+        for (var prop in obj) {
+            if(!obj.hasOwnProperty(prop)) continue;
+
+            if(key == prop && obj[prop] === val) {
+                return idx;
+            }
+        }
+    }
+    return -1;
 }
     
 function enemiesById(_id) {
@@ -377,15 +510,4 @@ function enemiesById(_id) {
         }
     }
 }
-
-function getRandomInt(min, max) { 
-    return Math.floor(Math.random() * (max - min +1)) + min; 
-}
-
-// Removing One Array Element
-if (!Array.prototype.remove) {
-  Array.prototype.remove = function(val) {
-    var i = this.indexOf(val);
-         return i>-1 ? this.splice(i, 1) : [];
-  };
-}
+*/
