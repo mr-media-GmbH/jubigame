@@ -1,7 +1,8 @@
-var WIDTH = 640,//window.innerWidth,
-    HEIGHT = 480,//window.innerHeight,
-    speed = 0.4, // overall game speed
-    gameTime = 30,
+var WIDTH = window.innerWidth,//640,
+    HEIGHT = window.innerHeight,//480,
+    FPS = 16,
+    speed = 0.7, // overall game speed
+    gamePlayTime = 45,
     reloadTimeout = 3000,
     fullMag = 8,
     enemyScoreArr = [1, 2, 5],
@@ -13,8 +14,10 @@ var WIDTH = 640,//window.innerWidth,
 var touchSupported,
     context,
     queue,
-    Image,
     stage,
+    crossHair,
+    startScrn,
+    gameScrn,
     targets = [],
     container,
     spriteSheet,
@@ -22,19 +25,17 @@ var touchSupported,
     scoreText,
     shotsLeft = fullMag,
     reloading,
+    gameTime = gamePlayTime,
     gameTimer,
     timerText,
     prmQue = {},
     Ease = createjs.Ease;
 
-window.onload = function() {
+window.onload = app.initialize();
 
-    app.initialize();
 
-    /*
-     *      Set up the Canvas with Size and height
-     *
-     */
+function init(){
+    /* Set up the Canvas with Size and height */
     var canvas = document.getElementById('myCanvas');
     context = canvas.getContext('2d');
     context.canvas.width = WIDTH;
@@ -49,20 +50,18 @@ window.onload = function() {
 
     // enable touch interactions if supported on the current device:
 	createjs.Touch.enable(stage);
-
-    /*
-     *      Set up the Asset Queue and load sounds
-     *
-     */
+    
+    // is touchscreen?
+    touchSupported = 'ontouchstart' in window;
+console.log(touchSupported);
+    /* Set up the Asset Queue and load sounds */
     queue = new createjs.LoadQueue(false);
     queue.installPlugin(createjs.Sound);
+    queue.on("progress", queueProgress, this);
     queue.on("complete", queueLoaded, this);
     createjs.Sound.alternateExtensions = ["ogg"];
 
-    /*
-     *      Create a load manifest for all assets
-     *
-     */
+    /* Create a load manifest for all assets */
     queue.loadManifest([
         {id: 'backgroundImage', src: 'assets/background.png'},
         {id: 'crossHair', src: 'assets/crosshair.png'},
@@ -75,48 +74,162 @@ window.onload = function() {
         {id: 'Death', src: 'assets/Death.png'},
     ]);
     queue.load();
-
-    /*
-     *      Create a timer that updates once per second
-     *
-     */
-    gameTimer = setInterval(updateTime, 1000);
-
-
     
-    var storage = window.localStorage;
+    // data storage
+/*    var storage = window.localStorage;
     var key = 'userScores';
     var value = storage.getItem(key); // Pass a key name to get its value.
      // Pass a key name and its value to add or update that key.
     storage.setItem(key, 'test')
-console.log( storage.getItem(key) );
+//console.log( storage.getItem(key) );
     // Pass a key name to remove that key from storage.
     storage.removeItem(key)
-console.log( storage.getItem(key) );
+//console.log( storage.getItem(key) );
+*/
 }
 
-function queueLoaded(event) {
+function queueProgress(evt) {
+    //$("#mainProgress > .progress").width(queue.progress * $("#mainProgress").width());
+    console.log(Math.round(100 * queue.progress));
+}
 
+function queueLoaded(evt) {
+    // Create crosshair
+    crossHair = new createjs.Bitmap(queue.getResult("crossHair"));
+    crossHair.x = -100;
+    crossHair.regX = 45;
+    crossHair.regY = 45;
+    if(touchSupported) {
+        crossHair.scaleX = 0.5;
+        crossHair.scaleY = 0.5;
+    }
+    stage.addChild(crossHair);
+
+    // Add stage ticker
+    createjs.Ticker.setFPS(FPS);
+    createjs.Ticker.addEventListener('tick', stage);
+
+    // Set up events
+    if(!touchSupported) {
+        window.onmousemove = handleMove;
+    }
+    
+    // start game loop
+    gameScrn();
+    startScrn();
+    stage.setChildIndex(crossHair, stage.numChildren-1);
+//console.log('crossHair '+stage.getChildIndex(crossHair));
+//console.log('startScrn '+stage.getChildIndex(startScrn));
+//console.log('gameScrn '+stage.getChildIndex(gameScrn));
+}
+
+// index: 1
+function startScrn() {
+    startScrn = new createjs.Container();
+    startScrn.setBounds(0, 0, WIDTH, HEIGHT);
+    
+    // background
+    var bg = new createjs.Shape();
+    bg.graphics.beginFill("#000").drawRect(0, 0, WIDTH, HEIGHT);
+
+    // start button
+    startBtn = new createjs.Container();
+    
+    var btnTxt = new createjs.Text("S T A R T", "36px Arial", "#FFF");
+    //btnTxt.x = 100;
+    //btnTxt.y = 100;
+    var hit = new createjs.Shape();
+    hit.graphics.beginFill("#000").drawRect(0, 0, WIDTH, HEIGHT);
+    btnTxt.hitArea = hit;
+    btnTxt.addEventListener('mousedown', function() {
+        createjs.Sound.play("shot");
+        startScrn.visible = 0;
+        countDown(3);
+    });
+/*    btnTxt.ontouchstart = function() {
+        createjs.Sound.play("shot");
+        startScrn.visible = 0;
+        countDown(3);
+    }*/
+    startBtn.addChild(btnTxt);
+    startBtn.x = WIDTH / 2 - startBtn.getBounds().width / 2;
+    startBtn.y = HEIGHT / 2 - startBtn.getBounds().height / 2;
+    startScrn.addChild(bg);
+    startScrn.addChild(startBtn);
+    stage.addChild(startScrn);
+}
+
+function showStartScrn() {
+//    stage.setChildIndex(startScrn, stage.numChildren-1);
+//    stage.setChildIndex(crossHair, stage.numChildren-1);
+    
+    createjs.Sound.registerSound('assets/shot.mp3', 'shot');
+
+    startScrn.alpha = 0;
+    startScrn.visible = 1;
+    createjs.Tween.get(startScrn).to({alpha: 1}, 250).call(function() {
+        timerText.text = "Time: " + gameTime.toString();
+        scoreText.text = "1UP: " + score.toString();
+    });
+    
+    // kill events
+    if(touchSupported) {
+        window.ontouchstart = '';
+    } else {
+        window.onmousedown = '';
+    }
+}
+
+function countDown(cnt) {
+    var _num = new createjs.Text(cnt, "36px Arial", "#FFF");
+    _num.x = WIDTH / 2;
+    _num.y = HEIGHT / 2;
+    _num.regX = _num.getBounds().width / 2;
+    _num.regY = _num.getBounds().height / 2;
+    _num.scaleX = 25;
+    _num.scaleY = 25;
+    _num.alpha = 0;
+    gameScrn.addChild(_num);
+    createjs.Tween.get(_num).to({scaleX: 0, scaleY: 0, alpha: 1}, 500, Ease.getPowln).call(function() {
+        gameScrn.removeChild(_num);
+        if(typeof cnt == 'number' && cnt > 0) {
+            cnt -= 1;
+            if(cnt > 0) {
+                countDown(cnt);
+            } else {
+                countDown('GO!');
+            }
+        } else {
+            playGame();
+        }
+    });
+}
+
+// index: 0
+function gameScrn() {
+    gameScrn = new createjs.Container();
+    gameScrn.setBounds(0, 0, WIDTH, HEIGHT);
+    
     // Add background image
-//    var backgroundImage = new createjs.Bitmap(queue.getResult("backgroundImage"))
-//    stage.addChild(backgroundImage);
+    var backgroundImage = new createjs.Bitmap(queue.getResult("backgroundImage"))
+    gameScrn.addChild(backgroundImage);
 
     //Add Score
-    scoreText = new createjs.Text("1UP: " + score.toString(), "36px Arial", "#FFF");
+    scoreText = new createjs.Text("1UP: 0", "36px Arial", "#FFF");
     scoreText.x = 10;
     scoreText.y = 10;
-    stage.addChild(scoreText);
+    gameScrn.addChild(scoreText);
 
     //Ad Timer
     timerText = new createjs.Text("Time: " + gameTime.toString(), "36px Arial", "#FFF");
     timerText.x = 500;
     timerText.y = 10;
-    stage.addChild(timerText);
+    gameScrn.addChild(timerText);
+    
+    stage.addChild(gameScrn);
+}
 
-    // Play background sound
-    var snd_background = createjs.Sound.play("background", {loop: -1});
-    snd_background.volume = 0.0;
-
+function playGame() {
     // Create  spritesheet
     spriteSheet = new createjs.SpriteSheet({
         "images": [queue.getResult('Spritesheet')],
@@ -131,42 +244,27 @@ function queueLoaded(event) {
     	"animations": {"die": [0,7, false,1 ] }
     });
 
-    // Create  sprites
+     // Play background sound
+    var snd_background = createjs.Sound.play("background", {loop: -1});
+    snd_background.volume = 0.0;
+
+   // Create sprites
     targets.push(createTarget());
     targets.push(createTarget());
 //console.log(targets);
     
-//    toggleCache(1);
-    
-    // Create crosshair
-    crossHair = new createjs.Bitmap(queue.getResult("crossHair"));
-    crossHair.x = -100;
-    crossHair.regX = 45;
-    crossHair.regY = 45;
-    if(touchSupported) {
-        crossHair.scaleX = 0.5;
-        crossHair.scaleY = 0.5;
-    }
-    stage.addChild(crossHair);
+    // timer that updates once per second
+    gameTimer = setInterval(updateTime, 1000);
 
-    // Add ticker
-    createjs.Ticker.setFPS(16/*Math.round(12 * speed)*/);
-    createjs.Ticker.addEventListener('tick', stage);
+    // Add game ticker
     createjs.Ticker.addEventListener('tick', tickEvent);
 
     // Set up events AFTER the game is loaded
-    touchSupported = 'ontouchstart' in window;
-//console.log(touchSupported);
-    //var startEvent = touchSupported ? 'touchstart' : 'mousedown';
-    //var moveEvent = touchSupported ? 'touchmove' : 'mousemove';
-    //var endEvent = touchSupported ? 'touchend' : 'mouseup';
-    
     if(touchSupported) {
-        window.ontouchstart = handleMouseDown;
+        window.ontouchstart = handleDown;
     } else {
-        window.onmousemove = handleMouseMove;
+        window.onmousedown = handleDown;
     }
-    window.onmousedown = handleMouseDown;
 }
 
 function createTarget() {
@@ -217,7 +315,7 @@ function createTarget() {
             if(reloading) return;
             Death(evt.currentTarget);
             createjs.Sound.play("deathSound");
-            stage.removeChild(evt.currentTarget);
+            gameScrn.removeChild(evt.currentTarget);
             targets.removeObj('id', evt.currentTarget.id);
             
             targets.push(createTarget());
@@ -227,14 +325,12 @@ function createTarget() {
             scoreText.text = "1UP: " + score.toString();
             
             speed = speed + 0.05;
-            createjs.Ticker.setFPS(16/*Math.round(12 * speed)*/);
-    //console.log("FPS: " + createjs.Ticker.getFPS());
         });
 
-        stage.addChildAt(itm, 1);
-        stage.setChildIndex(itm, itm.zDist);
-
+        gameScrn.addChild(itm);
+        gameScrn.setChildIndex(itm, itm.zDist + 1);
         debug: {
+            //console.log('itm '+gameScrn.getChildIndex(itm));
             //console.log('itm.id: ' +itm.id );
             // console.log((getEvenedRandInt('xDir', 0, 1) ? -1 : 1) + ' : ' + (getRandomInt(0, 1) ? -1 : 1));
             // console.log('itm.xDir ' + itm.xDir);
@@ -257,7 +353,7 @@ function Death(_target) {
     anim.scaleX = (1 / (_target.zDist + 1)).toFixed(1);
     anim.scaleY = (1 / (_target.zDist + 1)).toFixed(1);
     anim.gotoAndPlay("die");
-    stage.addChild(anim);
+    gameScrn.addChild(anim);
 }
 
 function tickEvent() {
@@ -281,7 +377,7 @@ function tickEvent() {
 
         if(outOfBounds) {
 //console.log( "outOfBounds itm.id " + itm.id );
-            stage.removeChild(itm);
+            gameScrn.removeChild(itm);
             targets.removeObj('id', itm.id);
             if(gameTime > 0) {
                 targets.push(createTarget());
@@ -307,24 +403,26 @@ function tickEvent() {
     }
 }
 
-function handleMouseMove(event) {
-    crossHair.x = event.clientX;
-    crossHair.y = event.clientY;
+function handleMove(evt) {
+    crossHair.x = evt.clientX;
+    crossHair.y = evt.clientY;
 //console.log('crossHair.visible ' + crossHair.visible);
 //console.log('crossHair.x ' + crossHair.x);
 //console.log('crossHair.y ' + crossHair.y);
 }
 
-function handleMouseDown(event) {
-//console.log(event);
+function handleDown(evt) {
+    crossHair.x = touchSupported ? evt.touches[0].clientX : evt.clientX;
+    crossHair.y = touchSupported ? evt.touches[0].clientY : evt.clientY;
+
     if(reloading) return;
-    
     
     // touch device
     if(touchSupported) {
-//console.log(event.touches[0].clientX);
-        crossHair.x = event.touches[0].clientX;
-        crossHair.y = event.touches[0].clientY;
+//console.log(evt.touches[0].clientX);
+//        crossHair.x = evt.touches[0].clientX;
+//        crossHair.y = evt.touches[0].clientY;
+        createjs.Tween.removeTweens(crossHair);
         crossHair.alpha = 1;
         createjs.Tween.get(crossHair).to({alpha: 0}, 400, Ease.getPowIn(2.2)).call(function() {});
         
@@ -334,24 +432,33 @@ function handleMouseDown(event) {
         });
     }
     
-    //Play Gunshot sound
+    // play sound
     createjs.Sound.play("shot");
-    
+
     // mag
     shotsLeft -= 1;
     if(shotsLeft < 1) {
-        crossHair.visible = false;
+        //crossHair.visible = false;
+        createjs.Tween.removeTweens(crossHair);
+        crossHair.scaleX = 1;
+        crossHair.scaleY = 1;
+        createjs.Tween.get(crossHair, {loop: true}).to({alpha: 0}, 300, Ease.getPowInOut(2.2));
+        
         reloading = window.setTimeout(function() {
             clearInterval(reloading);
             reloading = false;
             shotsLeft = fullMag;
-            crossHair.visible = true;
+            createjs.Tween.removeTweens(crossHair);
+            crossHair.alpha = 1;
+            if(touchSupported) {
+                crossHair.alpha = 0;
+            }
         }, reloadTimeout);
     }
 
     //Obtain Shot position
-/*    var shotX = Math.round(event.clientX);
-    var shotY = Math.round(event.clientY);
+/*    var shotX = Math.round(evt.clientX);
+    var shotY = Math.round(evt.clientY);
     var spriteX = Math.round(enemy.x);
     var spriteY = Math.round(enemy.y);
 
@@ -384,23 +491,34 @@ function handleMouseDown(event) {
 function updateTime() {
 	gameTime -= 1;
 	if(gameTime <= 0) {
-        clearInterval(gameTimer);
-
         //End Game and Clean up
 		timerText.text = "GAME OVER";
 
         for (var idx in targets) {
             Death(targets[idx]);
-            stage.removeChild(targets[idx]);
+            gameScrn.removeChild(targets[idx]);
         }
         targets = [];
 		
-        stage.removeChild(crossHair);
+//        stage.removeChild(crossHair);
         
         createjs.Sound.removeSound("shot");
-        createjs.Sound.removeSound("background");
+        createjs.Sound.stop("background");
 //        var si = createjs.Sound.play("gameOverSound");
 		
+        createjs.Tween.removeTweens(crossHair);
+        crossHair.alpha = 1;
+
+        // remove game ticker
+        createjs.Ticker.removeEventListener('tick', tickEvent);
+        
+        score = 0;
+        shotsLeft = fullMag;
+
+        gameTime = gamePlayTime;
+        clearInterval(gameTimer);
+        
+        setTimeout(showStartScrn, 1000);
  	} else {
 		timerText.text = "Time: " + gameTime
 //        createjs.Sound.play("tick");

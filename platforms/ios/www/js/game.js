@@ -27,14 +27,18 @@ var touchSupported,
     prmQue = {},
     Ease = createjs.Ease;
 
-window.onload = function() {
+window.onload = app.initialize();
 
-    app.initialize();
 
-    /*
-     *      Set up the Canvas with Size and height
-     *
-     */
+var g = {
+    // Application Constructor
+    init: function() {
+console.log('g.init()');
+    },
+}
+
+function init(){
+    /* Set up the Canvas with Size and height */
     var canvas = document.getElementById('myCanvas');
     context = canvas.getContext('2d');
     context.canvas.width = WIDTH;
@@ -50,19 +54,14 @@ window.onload = function() {
     // enable touch interactions if supported on the current device:
 	createjs.Touch.enable(stage);
 
-    /*
-     *      Set up the Asset Queue and load sounds
-     *
-     */
+    /* Set up the Asset Queue and load sounds */
     queue = new createjs.LoadQueue(false);
     queue.installPlugin(createjs.Sound);
+    queue.on("progress", queueProgress, this);
     queue.on("complete", queueLoaded, this);
     createjs.Sound.alternateExtensions = ["ogg"];
 
-    /*
-     *      Create a load manifest for all assets
-     *
-     */
+    /* Create a load manifest for all assets */
     queue.loadManifest([
         {id: 'backgroundImage', src: 'assets/background.png'},
         {id: 'crossHair', src: 'assets/crosshair.png'},
@@ -76,12 +75,25 @@ window.onload = function() {
     ]);
     queue.load();
 
-    /*
-     *      Create a timer that updates once per second
-     *
-     */
+    /* Create a timer that updates once per second */
     gameTimer = setInterval(updateTime, 1000);
 
+
+    
+    var storage = window.localStorage;
+    var key = 'userScores';
+    var value = storage.getItem(key); // Pass a key name to get its value.
+     // Pass a key name and its value to add or update that key.
+    storage.setItem(key, 'test')
+console.log( storage.getItem(key) );
+    // Pass a key name to remove that key from storage.
+    storage.removeItem(key)
+console.log( storage.getItem(key) );
+}
+
+function queueProgress(event) {
+    //$("#mainProgress > .progress").width(queue.progress * $("#mainProgress").width());
+    console.log(Math.round(100 * queue.progress));
 }
 
 function queueLoaded(event) {

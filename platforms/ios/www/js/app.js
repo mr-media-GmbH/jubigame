@@ -33,7 +33,9 @@ var app = {
     // The scope of 'this' is the event. In order to call the 'receivedEvent'
     // function, we must explicitly call 'app.receivedEvent(...);'
     onDeviceReady: function() {
-        StatusBar.overlaysWebView(false);
+        StatusBar.hide();
+//        StatusBar.overlaysWebView(false);
+        screen.lockOrientation('landscape');
         app.receivedEvent('deviceready');
 
         document.addEventListener('online', app.onOnline, false);
@@ -60,14 +62,12 @@ var app = {
           'Done'                  // buttonName
       );
 */
-//      window.screen.lockOrientation('portrait');
         window.addEventListener("orientationchange", function(){
-            console.log(screen.width);
-            console.log(screen.height);
-            console.log(window.innerWidth);
-            console.log(window.innerHeight);
-            console.log(window.screen.orientation); // e.g. portrait
+            console.log(screen.orientation);
         });
-        //setInterval(function(){console.log(navigator.connection)}, 1000);
+        
+        setInterval(function(){console.log(navigator.connection)}, 1000);
+
+        init();
     }
 };
