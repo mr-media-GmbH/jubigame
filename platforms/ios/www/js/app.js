@@ -34,8 +34,8 @@ var app = {
     // function, we must explicitly call 'app.receivedEvent(...);'
     onDeviceReady: function() {
         StatusBar.hide();
-//        StatusBar.overlaysWebView(false);
-        screen.lockOrientation('landscape');
+        StatusBar.overlaysWebView(false);
+//        screen.lockOrientation('landscape');
         app.receivedEvent('deviceready');
 
         document.addEventListener('online', app.onOnline, false);
@@ -50,7 +50,8 @@ var app = {
     // Update DOM on a Received Event
     receivedEvent: function(id) {
         console.log('event: ' + id);
-/*      window.alert = navigator.notification.alert;
+console.log(window.device);
+	/*      window.alert = navigator.notification.alert;
       function alertDismissed() {
           console.log(window.device);
       }
@@ -66,7 +67,7 @@ var app = {
             console.log(screen.orientation);
         });
         
-        setInterval(function(){console.log(navigator.connection)}, 1000);
+//        setInterval(function(){console.log(navigator.connection)}, 1000);
 
         init();
     }

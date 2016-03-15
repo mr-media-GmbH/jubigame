@@ -1,7 +1,8 @@
-var WIDTH = 640,//window.innerWidth,
-    HEIGHT = 480,//window.innerHeight,
-    speed = 0.4, // overall game speed
-    gameTime = 30,
+var WIDTH = window.innerWidth,//640,
+    HEIGHT = window.innerHeight,//480,
+    FPS = 16,
+    startSpeed = 0.5, // overall game speed
+    gamePlayTime = 45,
     reloadTimeout = 3000,
     fullMag = 8,
     enemyScoreArr = [1, 2, 5],
@@ -11,17 +12,23 @@ var WIDTH = 640,//window.innerWidth,
 
     
 var touchSupported,
+	storage,
     context,
     queue,
-    Image,
     stage,
+    crossHair,
+    startScrn,
+    gameScrn,
+    targetCont,
     targets = [],
     container,
     spriteSheet,
+	speed = startSpeed,
     score = 0,
     scoreText,
     shotsLeft = fullMag,
     reloading,
+    gameTime = gamePlayTime,
     gameTimer,
     timerText,
     prmQue = {},
@@ -29,13 +36,6 @@ var touchSupported,
 
 window.onload = app.initialize();
 
-
-var g = {
-    // Application Constructor
-    init: function() {
-console.log('g.init()');
-    },
-}
 
 function init(){
     /* Set up the Canvas with Size and height */
@@ -53,7 +53,10 @@ function init(){
 
     // enable touch interactions if supported on the current device:
 	createjs.Touch.enable(stage);
-
+    
+    // is touchscreen?
+    touchSupported = 'ontouchstart' in window;
+//console.log(touchSupported);
     /* Set up the Asset Queue and load sounds */
     queue = new createjs.LoadQueue(false);
     queue.installPlugin(createjs.Sound);
@@ -74,50 +77,164 @@ function init(){
         {id: 'Death', src: 'assets/Death.png'},
     ]);
     queue.load();
-
-    /* Create a timer that updates once per second */
-    gameTimer = setInterval(updateTime, 1000);
-
-
     
-    var storage = window.localStorage;
-    var key = 'userScores';
-    var value = storage.getItem(key); // Pass a key name to get its value.
-     // Pass a key name and its value to add or update that key.
-    storage.setItem(key, 'test')
-console.log( storage.getItem(key) );
-    // Pass a key name to remove that key from storage.
-    storage.removeItem(key)
-console.log( storage.getItem(key) );
+    // data storage object
+	storage = new Storage();
 }
 
-function queueProgress(event) {
+function queueProgress(evt) {
     //$("#mainProgress > .progress").width(queue.progress * $("#mainProgress").width());
-    console.log(Math.round(100 * queue.progress));
+//    console.log(Math.round(100 * queue.progress));
 }
 
-function queueLoaded(event) {
+function queueLoaded(evt) {
+    // Create crosshair
+    crossHair = new createjs.Bitmap(queue.getResult("crossHair"));
+    crossHair.x = -100;
+    crossHair.regX = 45;
+    crossHair.regY = 45;
+    if(touchSupported) {
+        crossHair.scaleX = 0.5;
+        crossHair.scaleY = 0.5;
+    }
+    stage.addChild(crossHair);
 
+    // Add stage ticker
+    createjs.Ticker.setFPS(FPS);
+    createjs.Ticker.addEventListener('tick', stage);
+
+    // Set up events
+    if(!touchSupported) {
+        window.onmousemove = handleMove;
+    }
+    
+    // start game loop
+    gameScrn();
+    startScrn();
+    stage.setChildIndex(crossHair, stage.numChildren-1);
+//console.log('crossHair '+stage.getChildIndex(crossHair));
+//console.log('startScrn '+stage.getChildIndex(startScrn));
+//console.log('gameScrn '+stage.getChildIndex(gameScrn));
+}
+
+// index: 1
+function startScrn() {
+    startScrn = new createjs.Container();
+    startScrn.setBounds(0, 0, WIDTH, HEIGHT);
+    
+    // background
+    var bg = new createjs.Shape();
+    bg.graphics.beginFill("#000").drawRect(0, 0, WIDTH, HEIGHT);
+
+    // start button
+    startBtn = new createjs.Container();
+    
+    var btnTxt = new createjs.Text("S T A R T", "36px Arial", "#FFF");
+    //btnTxt.x = 100;
+    //btnTxt.y = 100;
+    var hit = new createjs.Shape();
+    hit.graphics.beginFill("#000").drawRect(0, 0, WIDTH, HEIGHT);
+    btnTxt.hitArea = hit;
+    btnTxt.addEventListener('mousedown', function() {
+        createjs.Sound.play("shot");
+        startScrn.visible = 0;
+        countDown(3);
+    });
+/*    btnTxt.ontouchstart = function() {
+        createjs.Sound.play("shot");
+        startScrn.visible = 0;
+        countDown(3);
+    }*/
+    startBtn.addChild(btnTxt);
+    startBtn.x = WIDTH / 2 - startBtn.getBounds().width / 2;
+    startBtn.y = HEIGHT / 2 - startBtn.getBounds().height / 2;
+    startScrn.addChild(bg);
+    startScrn.addChild(startBtn);
+    stage.addChild(startScrn);
+}
+
+function showStartScrn() {
+//    stage.setChildIndex(startScrn, stage.numChildren-1);
+//    stage.setChildIndex(crossHair, stage.numChildren-1);
+    
+    createjs.Sound.registerSound('assets/shot.mp3', 'shot');
+
+    startScrn.alpha = 0;
+    startScrn.visible = 1;
+    createjs.Tween.get(startScrn).to({alpha: 1}, 250).call(function() {
+        timerText.text = "Time: " + gameTime.toString();
+        scoreText.text = "1UP: " + score.toString();
+    });
+    
+    // kill events
+    if(touchSupported) {
+        window.ontouchstart = '';
+    } else {
+        window.onmousedown = '';
+    }
+	
+console.log(storage.data.games)
+	
+}
+
+function countDown(cnt) {
+    var _num = new createjs.Text(cnt, "36px Arial", "#FFF");
+    _num.x = WIDTH / 2;
+    _num.y = HEIGHT / 2;
+    _num.regX = _num.getBounds().width / 2;
+    _num.regY = _num.getBounds().height / 2;
+    _num.scaleX = 25;
+    _num.scaleY = 25;
+    _num.alpha = 0;
+    gameScrn.addChild(_num);
+    createjs.Tween.get(_num).to({scaleX: 0, scaleY: 0, alpha: 1}, 500, Ease.getPowln).call(function() {
+        gameScrn.removeChild(_num);
+        if(typeof cnt == 'number' && cnt > 0) {
+            cnt -= 1;
+            if(cnt > 0) {
+                countDown(cnt);
+            } else {
+                countDown('GO!');
+            }
+        } else {
+            playGame();
+        }
+    });
+}
+
+// index: 0
+function gameScrn() {
+    gameScrn = new createjs.Container();
+    gameScrn.setBounds(0, 0, WIDTH, HEIGHT);
+    
     // Add background image
-//    var backgroundImage = new createjs.Bitmap(queue.getResult("backgroundImage"))
-//    stage.addChild(backgroundImage);
+    var backgroundImage = new createjs.Bitmap(queue.getResult("backgroundImage"))
+    gameScrn.addChild(backgroundImage);
 
-    //Add Score
-    scoreText = new createjs.Text("1UP: " + score.toString(), "36px Arial", "#FFF");
+    // Add Score
+    scoreText = new createjs.Text("1UP: 0", "36px Arial", "#FFF");
     scoreText.x = 10;
     scoreText.y = 10;
-    stage.addChild(scoreText);
+    gameScrn.addChild(scoreText);
 
-    //Ad Timer
+    // Add Timer
     timerText = new createjs.Text("Time: " + gameTime.toString(), "36px Arial", "#FFF");
     timerText.x = 500;
     timerText.y = 10;
-    stage.addChild(timerText);
+    gameScrn.addChild(timerText);
+    
+    // Add target screen
+    targetCont = new createjs.Container();
+    targetCont.setBounds(0, 180, gameScrn.getBounds().width, gameScrn.getBounds().height-120);
+    gameScrn.addChild(targetCont);
+    var hit = new createjs.Shape();
+    hit.graphics.beginFill("#000").drawRect(0, 0, targetCont.getBounds().width, targetCont.getBounds().height);
+    targetCont.addChild(hit);
+    
+    stage.addChild(gameScrn);
+}
 
-    // Play background sound
-    var snd_background = createjs.Sound.play("background", {loop: -1});
-    snd_background.volume = 0.0;
-
+function playGame() {
     // Create  spritesheet
     spriteSheet = new createjs.SpriteSheet({
         "images": [queue.getResult('Spritesheet')],
@@ -132,42 +249,27 @@ function queueLoaded(event) {
     	"animations": {"die": [0,7, false,1 ] }
     });
 
-    // Create  sprites
+     // Play background sound
+    var snd_background = createjs.Sound.play("background", {loop: -1});
+    snd_background.volume = 0.0;
+
+   // Create sprites
     targets.push(createTarget());
     targets.push(createTarget());
 //console.log(targets);
     
-//    toggleCache(1);
-    
-    // Create crosshair
-    crossHair = new createjs.Bitmap(queue.getResult("crossHair"));
-    crossHair.x = -100;
-    crossHair.regX = 45;
-    crossHair.regY = 45;
-    if(touchSupported) {
-        crossHair.scaleX = 0.5;
-        crossHair.scaleY = 0.5;
-    }
-    stage.addChild(crossHair);
+    // timer that updates once per second
+    gameTimer = setInterval(updateTime, 1000);
 
-    // Add ticker
-    createjs.Ticker.setFPS(16/*Math.round(12 * speed)*/);
-    createjs.Ticker.addEventListener('tick', stage);
+    // Add game ticker
     createjs.Ticker.addEventListener('tick', tickEvent);
 
     // Set up events AFTER the game is loaded
-    touchSupported = 'ontouchstart' in window;
-//console.log(touchSupported);
-    //var startEvent = touchSupported ? 'touchstart' : 'mousedown';
-    //var moveEvent = touchSupported ? 'touchmove' : 'mousemove';
-    //var endEvent = touchSupported ? 'touchend' : 'mouseup';
-    
     if(touchSupported) {
-        window.ontouchstart = handleMouseDown;
+        window.ontouchstart = handleDown;
     } else {
-        window.onmousemove = handleMouseMove;
+        window.onmousedown = handleDown;
     }
-    window.onmousedown = handleMouseDown;
 }
 
 function createTarget() {
@@ -209,18 +311,24 @@ function createTarget() {
 //console.log('itm.xVel ' + itm.xVel);
 //console.log('a ' + a + ' b ' + b + ' c ' + c);
 
-        // up/down movement
+        // up/down movement (all)
         createjs.Tween.get(anim, {loop: true}).to({y: anim.y + getRandomInt(itm.height/2, itm.height-itm.height/4)}, getRandomInt(700, 850), Ease.backInOut).call(function() {});
 
+        var hit = new createjs.Shape();
+        hit.graphics.beginFill("#000").drawRect(itm.width/2*-1, itm.height/2*-1, itm.width, itm.height);
+        itm.hitArea = hit;
+//        itm.addChild(hit)
         // mouse down actions
         itm.on("mousedown", function (evt) {
     //console.log(evt.currentTarget.id);
             if(reloading) return;
+            
             Death(evt.currentTarget);
             createjs.Sound.play("deathSound");
-            stage.removeChild(evt.currentTarget);
+            targetCont.removeChild(evt.currentTarget);
             targets.removeObj('id', evt.currentTarget.id);
             
+            // new targets
             targets.push(createTarget());
             targets.push(createTarget());
 
@@ -228,14 +336,12 @@ function createTarget() {
             scoreText.text = "1UP: " + score.toString();
             
             speed = speed + 0.05;
-            createjs.Ticker.setFPS(16/*Math.round(12 * speed)*/);
-    //console.log("FPS: " + createjs.Ticker.getFPS());
         });
 
-        stage.addChildAt(itm, 1);
-        stage.setChildIndex(itm, itm.zDist);
-
+        targetCont.addChild(itm);
+        targetCont.setChildIndex(itm, itm.zDist + 1);
         debug: {
+            //console.log('itm '+targetCont.getChildIndex(itm));
             //console.log('itm.id: ' +itm.id );
             // console.log((getEvenedRandInt('xDir', 0, 1) ? -1 : 1) + ' : ' + (getRandomInt(0, 1) ? -1 : 1));
             // console.log('itm.xDir ' + itm.xDir);
@@ -258,7 +364,7 @@ function Death(_target) {
     anim.scaleX = (1 / (_target.zDist + 1)).toFixed(1);
     anim.scaleY = (1 / (_target.zDist + 1)).toFixed(1);
     anim.gotoAndPlay("die");
-    stage.addChild(anim);
+    targetCont.addChild(anim);
 }
 
 function tickEvent() {
@@ -282,7 +388,7 @@ function tickEvent() {
 
         if(outOfBounds) {
 //console.log( "outOfBounds itm.id " + itm.id );
-            stage.removeChild(itm);
+            targetCont.removeChild(itm);
             targets.removeObj('id', itm.id);
             if(gameTime > 0) {
                 targets.push(createTarget());
@@ -308,24 +414,26 @@ function tickEvent() {
     }
 }
 
-function handleMouseMove(event) {
-    crossHair.x = event.clientX;
-    crossHair.y = event.clientY;
+function handleMove(evt) {
+    crossHair.x = evt.clientX;
+    crossHair.y = evt.clientY;
 //console.log('crossHair.visible ' + crossHair.visible);
 //console.log('crossHair.x ' + crossHair.x);
 //console.log('crossHair.y ' + crossHair.y);
 }
 
-function handleMouseDown(event) {
-//console.log(event);
+function handleDown(evt) {
+    crossHair.x = touchSupported ? evt.touches[0].clientX : evt.clientX;
+    crossHair.y = touchSupported ? evt.touches[0].clientY : evt.clientY;
+
     if(reloading) return;
-    
     
     // touch device
     if(touchSupported) {
-//console.log(event.touches[0].clientX);
-        crossHair.x = event.touches[0].clientX;
-        crossHair.y = event.touches[0].clientY;
+//console.log(evt.touches[0].clientX);
+//        crossHair.x = evt.touches[0].clientX;
+//        crossHair.y = evt.touches[0].clientY;
+        createjs.Tween.removeTweens(crossHair);
         crossHair.alpha = 1;
         createjs.Tween.get(crossHair).to({alpha: 0}, 400, Ease.getPowIn(2.2)).call(function() {});
         
@@ -335,24 +443,30 @@ function handleMouseDown(event) {
         });
     }
     
-    //Play Gunshot sound
+    // play sound
     createjs.Sound.play("shot");
-    
+
     // mag
     shotsLeft -= 1;
     if(shotsLeft < 1) {
-        crossHair.visible = false;
+        //crossHair.visible = false;
+        createjs.Tween.removeTweens(crossHair);
+        crossHair.scaleX = 1;
+        crossHair.scaleY = 1;
+        createjs.Tween.get(crossHair, {loop: true}).to({alpha: 0}, 200, Ease.getPowInOut(2.2));
+        
         reloading = window.setTimeout(function() {
             clearInterval(reloading);
             reloading = false;
             shotsLeft = fullMag;
-            crossHair.visible = true;
+            createjs.Tween.removeTweens(crossHair);
+            crossHair.alpha = touchSupported ? 0 : 1;
         }, reloadTimeout);
     }
 
     //Obtain Shot position
-/*    var shotX = Math.round(event.clientX);
-    var shotY = Math.round(event.clientY);
+/*    var shotX = Math.round(evt.clientX);
+    var shotY = Math.round(evt.clientY);
     var spriteX = Math.round(enemy.x);
     var spriteY = Math.round(enemy.y);
 
@@ -385,23 +499,49 @@ function handleMouseDown(event) {
 function updateTime() {
 	gameTime -= 1;
 	if(gameTime <= 0) {
-        clearInterval(gameTimer);
-
         //End Game and Clean up
 		timerText.text = "GAME OVER";
 
         for (var idx in targets) {
             Death(targets[idx]);
-            stage.removeChild(targets[idx]);
+            targetCont.removeChild(targets[idx]);
         }
         targets = [];
 		
-        stage.removeChild(crossHair);
+//        stage.removeChild(crossHair);
         
         createjs.Sound.removeSound("shot");
-        createjs.Sound.removeSound("background");
+        createjs.Sound.stop("background");
 //        var si = createjs.Sound.play("gameOverSound");
 		
+        createjs.Tween.removeTweens(crossHair);
+        crossHair.alpha = touchSupported ? 0 : 1;
+
+        // remove game ticker
+        createjs.Ticker.removeEventListener('tick', tickEvent);
+        
+        // store game state
+		if(score) {
+            storage.pushData('games', 'score', score);
+        }
+        
+		//console.log(storage);
+		//storage.clear();
+		//console.log(storage);
+		//console.log(storage);
+
+		//	for (var idx in storage.data.games) {
+				
+		//	}
+
+		speed = startSpeed;
+		score = 0;
+        shotsLeft = fullMag;
+
+        gameTime = gamePlayTime;
+        clearInterval(gameTimer);
+        
+        setTimeout(showStartScrn, 1000);
  	} else {
 		timerText.text = "Time: " + gameTime
 //        createjs.Sound.play("tick");
@@ -495,6 +635,43 @@ Array.prototype.removeObj = function(key, val) {
     return i>-1 ? this.splice(i, 1) : [];
 };
 
+
+/* storage class */
+var Storage = function(_opts) {
+	this.id = 'storage';
+	this.data = { prefs: {deviceId: '', plyrName: 'johndoe'}, games: {} };
+	this.read();
+	this.hasId();
+}
+
+Storage.prototype.hasId = function() {
+	if(this.data.prefs.deviceId) return;
+	
+	if(typeof device != 'undefined' && device.uuid) {
+		this.data.prefs.deviceId = window.btoa(device.uuid);
+	} else {
+		this.data.prefs.deviceId = window.btoa(navigator.userAgent);
+	}
+}
+
+Storage.prototype.read = function() {
+	this.data = JSON.parse(localStorage.getItem(this.id)) || this.data;
+}
+
+Storage.prototype.write = function() {
+	localStorage.setItem(this.id, JSON.stringify(this.data));
+}
+
+Storage.prototype.clear = function() {
+	localStorage.removeItem(this.id);
+}
+
+Storage.prototype.pushData = function(_key1, _key2, _score) {
+	this.data[_key1][ Date.now() ] = {[_key2]: _score.toString()};
+	this.write();
+}
+
+	
 /* unused *
 function findEnemyProp(key, val) { 
     for (var idx in targets) {

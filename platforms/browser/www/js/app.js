@@ -50,7 +50,8 @@ var app = {
     // Update DOM on a Received Event
     receivedEvent: function(id) {
         console.log('event: ' + id);
-/*      window.alert = navigator.notification.alert;
+//console.log(window.device);
+	/*      window.alert = navigator.notification.alert;
       function alertDismissed() {
           console.log(window.device);
       }
