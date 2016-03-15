@@ -1,5 +1,5 @@
-var WIDTH = window.innerWidth,//640,
-    HEIGHT = window.innerHeight,//480,
+var WIDTH = 640,//window.innerWidth,
+    HEIGHT = 480,//window.innerHeight,
     FPS = 16,
     startSpeed = 0.5, // overall game speed
     gamePlayTime = 15,
@@ -7,7 +7,10 @@ var WIDTH = window.innerWidth,//640,
     fullMag = 8,
     enemyScoreArr = [1, 2, 5],
     enemyXVelsArr = [9, 7, 5],
-    enemyScaleArr = [1, 0.7, 0.45];
+    enemyScaleArr = [1, 0.7, 0.45],
+    sync_url = 'http://192.168.0.100/mymedia/game/submitscore.php';
+//    sync_url = 'http://172.16.132.90/mr-media.de/httpdocs/game/submitscore.php';
+//    sync_url = 'https://mr-media.de/submitscore.php';
 
 
     
@@ -153,24 +156,71 @@ function startScrn() {
     stage.addChild(startScrn);
 
 
-//storage.clear();
-storage.pushData('games', 'score', getEvenedRandInt('x', 100, 20000, 100, 10));
+var x = getEvenedRandInt('x', 100, 20000, 100, 10);
+console.log('new score '+x);        
+storage.clear();
+storage.pushData('games', 'score', x);
+    function highscores() {
+        
+        var scores = storage.data.games;
+        scores.sort(function (a, b) {
+            return parseInt(b.score) - parseInt(a.score);
+        });
+//        scores = scores.reverse();
+        
+        if(scores.length > 10) {
+            // shorten array
+            scores = scores.slice(0, 10);
+            storage.data.games = scores;
+            storage.write();
+        }
+        for (var i=0; i<scores.length; i++) {
+    console.log(i)    
+    console.log(scores[i])
+        }
+console.log('--');        
+
+        // get date of highest score
+        var hi = scores[0].date;
+        scores.sort(function (a, b) {
+            return parseInt(b.date) - parseInt(a.date);
+        });
+        for (var i=0; i<scores.length; i++) {
+    console.log(i)    
+    console.log(scores[i])
+        }
+        
+        // compare hi to last date
+    console.log('hi '+hi)    
+    console.log('scores[0].date '+scores[0].date)    
+        var nuHighScore = scores[0].date == hi ? scores[0].score : false;
+        
+        // new hiscore, push highest to server
+console.log('nuHighScore '+nuHighScore)
+console.log('connected '+connected)
+        if(nuHighScore && connected) {
+            $.ajax({
+                url: sync_url,
+                data: encode!{
+                    id: storage.data.prefs.deviceId,
+                    name: storage.data.prefs.plyrName,
+                    score: storage.data.games[0].score
+                },
+                method: 'POST',
+                cache: false
+            })
+            .done(function(data, textStatus, jqXHR) {
+                console.log('data' + data);
+//                console.log(textStatus);
+//                console.log('jqXHR ' + jqXHR);
+            })
+            .fail(function(err) {
+                console.log('Error: ' + err.status);
+            });
+        }
+    }
     
-    var scores = storage.data.games;
-console.log(scores)
-console.log(typeof scores)
-    scores.sort(function (a, b) {
-        if (a.score > b.score) {
-            return 1;
-        }
-        if (a.score < b.score) {
-            return -1;
-        }
-        // a must be equal to b
-        return 0;
-    });
-console.log(scores)
-console.log('--------')
+    highscores();
 }
 
 function showStartScrn() {
@@ -541,16 +591,8 @@ function updateTime() {
             storage.pushData('games', 'score', score);
         }
         
-		//console.log(storage);
-		//storage.clear();
-		//console.log(storage);
-		//console.log(storage);
-
-		//	for (var idx in storage.data.games) {
-				
-		//	}
-
-		speed = startSpeed;
+        
+        speed = startSpeed;
 		score = 0;
         shotsLeft = fullMag;
 
@@ -655,14 +697,14 @@ Array.prototype.removeObj = function(key, val) {
 /* storage class */
 var Storage = function(_opts) {
 	this.id = 'storage';
-	this._data = { prefs: {deviceId: '', plyrName: 'johndoe'}, games: [] };
+	this._data = { prefs: {deviceId: '', plyrName: 'jimdoe'}, games: [] };
 	this.data = this._data;
 	this.read();
 	this.hasId();
 }
 
 Storage.prototype.hasId = function() {
-	if(this.data.prefs.deviceId) return;
+    if(this.data.prefs.deviceId) return;
 	
 	if(typeof device != 'undefined' && device.uuid) {
 		this.data.prefs.deviceId = window.btoa(device.uuid);
@@ -682,10 +724,10 @@ Storage.prototype.write = function() {
 Storage.prototype.clear = function() {
 	localStorage.removeItem(this.id);
     this.data = this._data;
+    this.hasId();
 }
 
 Storage.prototype.pushData = function(_key1, _key2, _val) {
-//	this.data[_key1][ Object.keys(this.data[_key1]).length ] = {date: Date.now(), [_key2]: _val.toString()};
 	this.data[_key1].push({date: Date.now(), [_key2]: _val.toString()});
 	this.write();
 }

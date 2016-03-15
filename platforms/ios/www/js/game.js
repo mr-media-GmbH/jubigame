@@ -1,13 +1,16 @@
-var WIDTH = window.innerWidth,//640,
-    HEIGHT = window.innerHeight,//480,
+var WIDTH = 640,//window.innerWidth,
+    HEIGHT = 480,//window.innerHeight,
     FPS = 16,
     startSpeed = 0.5, // overall game speed
-    gamePlayTime = 45,
+    gamePlayTime = 15,
     reloadTimeout = 3000,
     fullMag = 8,
     enemyScoreArr = [1, 2, 5],
     enemyXVelsArr = [9, 7, 5],
-    enemyScaleArr = [1, 0.7, 0.45];
+    enemyScaleArr = [1, 0.7, 0.45],
+    sync_url = 'http://192.168.0.100/mymedia/game/submitscore.php';
+//    sync_url = 'http://172.16.132.90/mr-media.de/httpdocs/game/submitscore.php';
+//    sync_url = 'https://mr-media.de/submitscore.php';
 
 
     
@@ -129,7 +132,7 @@ function startScrn() {
     // start button
     startBtn = new createjs.Container();
     
-    var btnTxt = new createjs.Text("S T A R T", "36px Arial", "#FFF");
+    var btnTxt = new createjs.Text("S T A R T", "26px Arial", "#FFF");
     //btnTxt.x = 100;
     //btnTxt.y = 100;
     var hit = new createjs.Shape();
@@ -151,11 +154,76 @@ function startScrn() {
     startScrn.addChild(bg);
     startScrn.addChild(startBtn);
     stage.addChild(startScrn);
+
+
+//storage.clear();
+var x = getEvenedRandInt('x', 100, 20000, 100, 10);
+console.log('new score '+x);        
+storage.pushData('games', 'score', x);
+    function highscores() {
+        
+        var scores = storage.data.games;
+        scores.sort(function (a, b) {
+            return parseInt(b.score) - parseInt(a.score);
+        });
+//        scores = scores.reverse();
+        
+        if(scores.length > 10) {
+            // shorten array
+            scores = scores.slice(0, 10);
+            storage.data.games = scores;
+            storage.write();
+        }
+        for (var i=0; i<scores.length; i++) {
+    console.log(i)    
+    console.log(scores[i])
+        }
+console.log('--');        
+
+        // get date of highest score
+        var hi = scores[0].date;
+        scores.sort(function (a, b) {
+            return parseInt(b.date) - parseInt(a.date);
+        });
+        for (var i=0; i<scores.length; i++) {
+    console.log(i)    
+    console.log(scores[i])
+        }
+        
+        // compare hi to last date
+    console.log('hi '+hi)    
+    console.log('scores[0].date '+scores[0].date)    
+        var nuHighScore = scores[0].date == hi ? scores[0].score : false;
+        
+        // new hiscore, push highest to server
+console.log('nuHighScore '+nuHighScore)
+console.log('connected '+connected)
+        if(nuHighScore && connected) {
+            $.ajax({
+                url: sync_url,
+                data: {
+                    id: storage.data.prefs.deviceId,
+                    name: storage.data.prefs.plyrName,
+                    score: storage.data.games[0].score
+                },
+                method: 'POST',
+                cache: false
+            })
+            .done(function(data, textStatus, jqXHR) {
+                console.log('data' + data);
+                console.log(textStatus);
+                console.log('jqXHR ' + jqXHR);
+            })
+            .fail(function(err) {
+                console.log('Error: ' + err.status);
+            });
+        }
+    }
+    
+    highscores();
 }
 
 function showStartScrn() {
-//    stage.setChildIndex(startScrn, stage.numChildren-1);
-//    stage.setChildIndex(crossHair, stage.numChildren-1);
     
     createjs.Sound.registerSound('assets/shot.mp3', 'shot');
 
@@ -172,13 +240,10 @@ function showStartScrn() {
     } else {
         window.onmousedown = '';
     }
-	
-console.log(storage.data.games)
-	
 }
 
 function countDown(cnt) {
-    var _num = new createjs.Text(cnt, "36px Arial", "#FFF");
+    var _num = new createjs.Text(cnt, "26px Arial", "#FFF");
     _num.x = WIDTH / 2;
     _num.y = HEIGHT / 2;
     _num.regX = _num.getBounds().width / 2;
@@ -212,24 +277,25 @@ function gameScrn() {
     gameScrn.addChild(backgroundImage);
 
     // Add Score
-    scoreText = new createjs.Text("1UP: 0", "36px Arial", "#FFF");
+    scoreText = new createjs.Text("1UP: 0", "26px Arial", "#FFF");
     scoreText.x = 10;
     scoreText.y = 10;
     gameScrn.addChild(scoreText);
 
     // Add Timer
-    timerText = new createjs.Text("Time: " + gameTime.toString(), "36px Arial", "#FFF");
+    timerText = new createjs.Text("Time: " + gameTime.toString(), "26px Arial", "#FFF");
     timerText.x = 500;
     timerText.y = 10;
     gameScrn.addChild(timerText);
     
     // Add target screen
     targetCont = new createjs.Container();
-    targetCont.setBounds(0, 180, gameScrn.getBounds().width, gameScrn.getBounds().height-120);
+    targetCont.setBounds(0, 0, gameScrn.getBounds().width, gameScrn.getBounds().height-40);
+    targetCont.y = 30;
     gameScrn.addChild(targetCont);
-    var hit = new createjs.Shape();
-    hit.graphics.beginFill("#000").drawRect(0, 0, targetCont.getBounds().width, targetCont.getBounds().height);
-    targetCont.addChild(hit);
+//    var hit = new createjs.Shape();
+//    hit.graphics.beginFill("#000").drawRect(0, 0, targetCont.getBounds().width, targetCont.getBounds().height);
+//    targetCont.addChild(hit);
     
     stage.addChild(gameScrn);
 }
@@ -302,7 +368,7 @@ function createTarget() {
         itm.x = itm.xDir != 1
             ? WIDTH + itm.width
             : itm.width * -1;
-        itm.y = getEvenedRandInt('y', itm.height, HEIGHT - itm.height, 50);
+        itm.y = getEvenedRandInt('y', itm.height, targetCont.getTransformedBounds().height - itm.height, 50);
 
         var b = Math.round(enemyXVelsArr[itm.zDist] * speed);
         var a = b - (b / 100 * 15);
@@ -431,8 +497,8 @@ function handleDown(evt) {
     // touch device
     if(touchSupported) {
 //console.log(evt.touches[0].clientX);
-//        crossHair.x = evt.touches[0].clientX;
-//        crossHair.y = evt.touches[0].clientY;
+        crossHair.x = evt.touches[0].clientX;
+        crossHair.y = evt.touches[0].clientY;
         createjs.Tween.removeTweens(crossHair);
         crossHair.alpha = 1;
         createjs.Tween.get(crossHair).to({alpha: 0}, 400, Ease.getPowIn(2.2)).call(function() {});
@@ -525,16 +591,8 @@ function updateTime() {
             storage.pushData('games', 'score', score);
         }
         
-		//console.log(storage);
-		//storage.clear();
-		//console.log(storage);
-		//console.log(storage);
-
-		//	for (var idx in storage.data.games) {
-				
-		//	}
-
-		speed = startSpeed;
+        
+        speed = startSpeed;
 		score = 0;
         shotsLeft = fullMag;
 
@@ -639,13 +697,14 @@ Array.prototype.removeObj = function(key, val) {
 /* storage class */
 var Storage = function(_opts) {
 	this.id = 'storage';
-	this.data = { prefs: {deviceId: '', plyrName: 'johndoe'}, games: {} };
+	this._data = { prefs: {deviceId: '', plyrName: 'johndoe'}, games: [] };
+	this.data = this._data;
 	this.read();
 	this.hasId();
 }
 
 Storage.prototype.hasId = function() {
-	if(this.data.prefs.deviceId) return;
+    if(this.data.prefs.deviceId) return;
 	
 	if(typeof device != 'undefined' && device.uuid) {
 		this.data.prefs.deviceId = window.btoa(device.uuid);
@@ -664,10 +723,12 @@ Storage.prototype.write = function() {
 
 Storage.prototype.clear = function() {
 	localStorage.removeItem(this.id);
+    this.data = this._data;
+    this.hasId();
 }
 
-Storage.prototype.pushData = function(_key1, _key2, _score) {
-	this.data[_key1][ Date.now() ] = {[_key2]: _score.toString()};
+Storage.prototype.pushData = function(_key1, _key2, _val) {
+	this.data[_key1].push({date: Date.now(), [_key2]: _val.toString()});
 	this.write();
 }
 

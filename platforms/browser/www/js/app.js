@@ -16,6 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+var connected;
 var app = {
     // Application Constructor
     initialize: function() {
@@ -43,9 +44,11 @@ var app = {
     },
     onOnline: function() {
         app.receivedEvent('online');
+        connected = true;
     },
     onOffline: function(){
         app.receivedEvent('offline');
+        connected = false;
     },
     // Update DOM on a Received Event
     receivedEvent: function(id) {
@@ -62,12 +65,27 @@ var app = {
           'Game Over',            // title
           'Done'                  // buttonName
       );
-*/
+
         window.addEventListener("orientationchange", function(){
             console.log(screen.orientation);
         });
         
-//        setInterval(function(){console.log(navigator.connection)}, 1000);
+        setInterval(function(){console.log(navigator.connection)}, 1000);
+*/
+        // try to connect to server
+        $.support.cors = true;
+        $.ajax({
+            url:  'http://mr-media.de',
+            timeout: 3000,
+            cache: false
+        })
+        .done(function(data, status) {
+            if(status == 'success')
+                connected = true;
+        })
+        .fail(function(err) {
+            connected = false;
+        });
 
         init();
     }
