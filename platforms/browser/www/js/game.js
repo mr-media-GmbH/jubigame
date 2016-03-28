@@ -2,15 +2,18 @@ var WIDTH = 640,//window.innerWidth,
     HEIGHT = 480,//window.innerHeight,
     FPS = 16,
     startSpeed = 0.5, // overall game speed
-    gamePlayTime = 15,
+    gamePlayTime = 25,
     reloadTimeout = 3000,
     fullMag = 8,
     enemyScoreArr = [1, 2, 5],
     enemyXVelsArr = [9, 7, 5],
     enemyScaleArr = [1, 0.7, 0.45],
-    sync_url = 'http://192.168.0.100/mymedia/game/submitscore.php';
-//    sync_url = 'http://172.16.132.90/mr-media.de/httpdocs/game/submitscore.php';
-//    sync_url = 'https://mr-media.de/submitscore.php';
+	mainFontFam = ' visitor_tt2_brkregular', // first char must be space
+	mainFontSize = '40px',
+    onlineBoardLength = 10;
+//    sync_url = 'http://192.168.0.100/mymedia/game/submitscore.php';
+//    sync_url = 'http://localhost/mr-media.de/httpdocs/game/submitscore.php';
+    sync_url = 'https://demo.mr-media.de/game/';
 
 
     
@@ -29,15 +32,15 @@ var touchSupported,
 	speed = startSpeed,
     score = 0,
     scoreText,
+    newLocalHighScore,
     shotsLeft = fullMag,
     reloading,
     gameTime = gamePlayTime,
     gameTimer,
     timerText,
+    creditsTimer,
     prmQue = {},
     Ease = createjs.Ease;
-
-window.onload = app.initialize();
 
 
 function init(){
@@ -46,7 +49,8 @@ function init(){
     context = canvas.getContext('2d');
     context.canvas.width = WIDTH;
     context.canvas.height = HEIGHT;
-    stage = new createjs.Stage("myCanvas");
+    //stage = new createjs.Stage("myCanvas");
+    stage = new createjs.SpriteStage("myCanvas", false, false);
     
     // hide mouse cursor when roll over the stage
     stage.canvas.style.cursor = "none";
@@ -72,12 +76,13 @@ function init(){
         {id: 'backgroundImage', src: 'assets/background.png'},
         {id: 'crossHair', src: 'assets/crosshair.png'},
         {id: 'shot', src: 'assets/shot.mp3'},
-        {id: 'background', src: 'assets/countryside.mp3'},
+        {id: 'menu_loop', src: 'assets/menue_score_loop.mp3'},
+        {id: 'game_loop', src: 'assets/ingame_loop.mp3'},
         {id: 'gameOverSound', src: 'assets/gameOver.mp3'},
         {id: 'tick', src: 'assets/tick.mp3'},
         {id: 'deathSound', src: 'assets/die.mp3'},
-        {id: 'Spritesheet', src: 'assets/Spritesheet.png'},
-        {id: 'Death', src: 'assets/Death.png'},
+        {id: 'Spritesheet', src: 'assets/DroneSpritesheet.png'},
+        {id: 'Death', src: 'assets/droneDeath.png'},
     ]);
     queue.load();
     
@@ -132,7 +137,7 @@ function startScrn() {
     // start button
     startBtn = new createjs.Container();
     
-    var btnTxt = new createjs.Text("S T A R T", "26px Arial", "#FFF");
+    var btnTxt = new createjs.Text("S T A R T", mainFontSize + mainFontFam, "#FFF");
     //btnTxt.x = 100;
     //btnTxt.y = 100;
     var hit = new createjs.Shape();
@@ -141,6 +146,8 @@ function startScrn() {
     btnTxt.addEventListener('mousedown', function() {
         createjs.Sound.play("shot");
         startScrn.visible = 0;
+        createjs.Sound.stop("menu_loop");
+		$('#highscore_box').hide();
         countDown(3);
     });
 /*    btnTxt.ontouchstart = function() {
@@ -155,76 +162,19 @@ function startScrn() {
     startScrn.addChild(startBtn);
     stage.addChild(startScrn);
 
-
-var x = getEvenedRandInt('x', 100, 20000, 100, 10);
-console.log('new score '+x);        
-storage.clear();
-storage.pushData('games', 'score', x);
-    function highscores() {
-        
-        var scores = storage.data.games;
-        scores.sort(function (a, b) {
-            return parseInt(b.score) - parseInt(a.score);
-        });
-//        scores = scores.reverse();
-        
-        if(scores.length > 10) {
-            // shorten array
-            scores = scores.slice(0, 10);
-            storage.data.games = scores;
-            storage.write();
-        }
-        for (var i=0; i<scores.length; i++) {
-    console.log(i)    
-    console.log(scores[i])
-        }
-console.log('--');        
-
-        // get date of highest score
-        var hi = scores[0].date;
-        scores.sort(function (a, b) {
-            return parseInt(b.date) - parseInt(a.date);
-        });
-        for (var i=0; i<scores.length; i++) {
-    console.log(i)    
-    console.log(scores[i])
-        }
-        
-        // compare hi to last date
-    console.log('hi '+hi)    
-    console.log('scores[0].date '+scores[0].date)    
-        var nuHighScore = scores[0].date == hi ? scores[0].score : false;
-        
-        // new hiscore, push highest to server
-console.log('nuHighScore '+nuHighScore)
-console.log('connected '+connected)
-        if(nuHighScore && connected) {
-            $.ajax({
-                url: sync_url,
-                data: encode!{
-                    id: storage.data.prefs.deviceId,
-                    name: storage.data.prefs.plyrName,
-                    score: storage.data.games[0].score
-                },
-                method: 'POST',
-                cache: false
-            })
-            .done(function(data, textStatus, jqXHR) {
-                console.log('data' + data);
-//                console.log(textStatus);
-//                console.log('jqXHR ' + jqXHR);
-            })
-            .fail(function(err) {
-                console.log('Error: ' + err.status);
-            });
-        }
-    }
-    
-    highscores();
+var x = getEvenedRandInt('x', 5000, 20000, 100, 10);
+//console.log('new score '+x);        
+//storage.clear();
+//storage.pushData('games', 'score', x);
+    showStartScrn();
 }
 
 function showStartScrn() {
     
+     // Play background sound
+    var snd_background = createjs.Sound.play("menu_loop", {loop: -1});
+    snd_background.volume = 1.0;
+
     createjs.Sound.registerSound('assets/shot.mp3', 'shot');
 
     startScrn.alpha = 0;
@@ -240,20 +190,25 @@ function showStartScrn() {
     } else {
         window.onmousedown = '';
     }
+    
+    // creditsTimer
+    creditsTimer = setTimeout(function(){ }, 5000);
+    
+    highScores();
 }
 
 function countDown(cnt) {
-    var _num = new createjs.Text(cnt, "26px Arial", "#FFF");
-    _num.x = WIDTH / 2;
-    _num.y = HEIGHT / 2;
-    _num.regX = _num.getBounds().width / 2;
-    _num.regY = _num.getBounds().height / 2;
-    _num.scaleX = 25;
-    _num.scaleY = 25;
-    _num.alpha = 0;
-    gameScrn.addChild(_num);
-    createjs.Tween.get(_num).to({scaleX: 0, scaleY: 0, alpha: 1}, 500, Ease.getPowln).call(function() {
-        gameScrn.removeChild(_num);
+	var num = new createjs.Text(cnt, '16px' + mainFontFam, "#FFF");
+	num.x = WIDTH / 2;
+	num.y = HEIGHT / 2;
+	num.regX = num.getBounds().width / 2;
+	num.regY = num.getBounds().height;
+	num.scaleX = 25;
+	num.scaleY = 25;
+	num.alpha = 0;
+	gameScrn.addChild(num);
+	createjs.Tween.get(num).to({scaleX: 1, scaleY: 1, alpha: 1}, 500, Ease.getPowln).call(function() {
+		gameScrn.removeChild(num);
         if(typeof cnt == 'number' && cnt > 0) {
             cnt -= 1;
             if(cnt > 0) {
@@ -277,13 +232,13 @@ function gameScrn() {
     gameScrn.addChild(backgroundImage);
 
     // Add Score
-    scoreText = new createjs.Text("1UP: 0", "26px Arial", "#FFF");
+    scoreText = new createjs.Text("1UP: 0", mainFontSize + mainFontFam, "#FFF");
     scoreText.x = 10;
     scoreText.y = 10;
     gameScrn.addChild(scoreText);
 
     // Add Timer
-    timerText = new createjs.Text("Time: " + gameTime.toString(), "26px Arial", "#FFF");
+    timerText = new createjs.Text("Time: " + gameTime.toString(), mainFontSize + mainFontFam, "#FFF");
     timerText.x = 500;
     timerText.y = 10;
     gameScrn.addChild(timerText);
@@ -301,6 +256,11 @@ function gameScrn() {
 }
 
 function playGame() {
+    
+    // game music
+    createjs.Sound.play("game_loop", {loop: -1});
+    
+    
     // Create  spritesheet
     spriteSheet = new createjs.SpriteSheet({
         "images": [queue.getResult('Spritesheet')],
@@ -314,10 +274,6 @@ function playGame() {
     	"frames": {"width": 198, "height" : 148},
     	"animations": {"die": [0,7, false,1 ] }
     });
-
-     // Play background sound
-    var snd_background = createjs.Sound.play("background", {loop: -1});
-    snd_background.volume = 0.0;
 
    // Create sprites
     targets.push(createTarget());
@@ -422,15 +378,33 @@ function createTarget() {
 }
 
 function Death(_target) {
-    var anim = new createjs.Sprite(DeathSpriteSheet, "die");
-    anim.regX = 99;
-    anim.regY = 58;
-    anim.x = _target.x;
-    anim.y = _target.y;
-    anim.scaleX = (1 / (_target.zDist + 1)).toFixed(1);
-    anim.scaleY = (1 / (_target.zDist + 1)).toFixed(1);
-    anim.gotoAndPlay("die");
-    targetCont.addChild(anim);
+	var anim = new createjs.Sprite(DeathSpriteSheet, "die");
+//	anim.regX = 99;
+//	anim.regY = 58;
+	anim.regX = anim.getBounds().width / 2;
+	anim.regY = anim.getBounds().height / 2;
+//console.log(anim.regX);
+//console.log(anim.regY);
+
+	anim.x = _target.x;
+	anim.y = _target.y;
+	anim.scaleX = (1 / (_target.zDist + 1)).toFixed(1);
+	anim.scaleY = (1 / (_target.zDist + 1)).toFixed(1);
+	anim.gotoAndPlay("die");
+	targetCont.addChild(anim);
+
+	// points
+	if(gameTime) {
+		var bubble = new createjs.Text(100 * _target.score, mainFontSize + mainFontFam, "#FFF");
+		bubble.x = _target.x;
+		bubble.y = _target.y;
+		bubble.regX = bubble.getBounds().width / 2;
+		bubble.regY = bubble.getBounds().height / 2;
+		createjs.Tween.get(bubble).to({y: bubble.y - 100, scaleX: 1.8, scaleY: 1.5, alpha: 0.2}, 400, Ease.getPowOut(2.2)).call(function() {
+			targetCont.removeChild(bubble);
+		});
+		targetCont.addChild(bubble);
+	}
 }
 
 function tickEvent() {
@@ -529,37 +503,6 @@ function handleDown(evt) {
             crossHair.alpha = touchSupported ? 0 : 1;
         }, reloadTimeout);
     }
-
-    //Obtain Shot position
-/*    var shotX = Math.round(evt.clientX);
-    var shotY = Math.round(evt.clientY);
-    var spriteX = Math.round(enemy.x);
-    var spriteY = Math.round(enemy.y);
-
-    // Compute the X and Y distance using absolte value
-    var distX = Math.abs(shotX - spriteX);
-    var distY = Math.abs(shotY - spriteY);
-
-    // Anywhere in the body or head is a hit - but not the wings
-    if(distX < 30 && distY < 59 )
-    {
-    	//Hit
-//    	stage.removeChild(enemy);
-//    	Death();
-//    	score += 100;
-//    	scoreText.text = "1UP: " + score.toString();
-
-    	//Create new enemy
-//    	var timeToCreate = Math.floor((Math.random()*3500)+1);
-//	    setTimeout(createTarget,timeToCreate);
-    } else
-    {
-    	//Miss
-    	score -= 10;
-//    	scoreText.text = "1UP: " + score.toString() + touchSupported.toString();
-
-    }
-*/
 }
 
 function updateTime() {
@@ -577,7 +520,7 @@ function updateTime() {
 //        stage.removeChild(crossHair);
         
         createjs.Sound.removeSound("shot");
-        createjs.Sound.stop("background");
+        createjs.Sound.stop("game_loop");
 //        var si = createjs.Sound.play("gameOverSound");
 		
         createjs.Tween.removeTweens(crossHair);
@@ -604,6 +547,309 @@ function updateTime() {
 		timerText.text = "Time: " + gameTime
 //        createjs.Sound.play("tick");
 	}
+}
+
+function playerSpecsDialog(data, textStatus, jqXHR) {
+    
+    if(!data && !textStatus) {
+		// here the user input stuff
+        ajaxReq({url: sync_url + 'tmpl/userform.html', crossdomain: false}, function(data) {
+            var insert = false;
+            $.each($('#highscore_box div'), function( k, v ) {
+                var scr = $('span:nth-child(3)', v).text();
+                if(!insert && newLocalHighScore > scr) {
+                    $('<div>').addClass('highscore_row').attr('id','form_box').insertBefore( this );
+                    $('#form_box').html(data).show();
+                    $('#form_box > span:nth-child(1)').text(k+1);
+                    $('#form_box > span:nth-child(3)').text(newLocalHighScore);
+
+                    $('#form_box #name').addClass('blink').attr('placeholder', storage._data.prefs.name).focus();
+                    $('#form_box #email').addClass('blink').attr('placeholder', 'EMailadresse');//.hide();
+
+                    insert = true;
+                }
+                
+                if(insert) {
+                    $('span:nth-child(1)', v).text(k+2);
+                    if(k+1 >= onlineBoardLength) {
+                        this.remove();
+                    }
+                }
+            });
+
+        }); 
+//        $('canvas').hide();
+
+	} else {
+		var ret = [];
+		try {
+			ret = JSON.parse(atob(data));
+			
+console.log('562');
+console.log(ret);
+console.log(ret.status);
+console.log(ret.status==201);
+console.log(u_name);
+console.log(u_email);
+			if(ret.status == 201 && u_name && u_email) {
+                $('#form_box').html('').hide();
+				savePlayerSpecs(u_name, u_email);
+			}
+		} catch(e) { /*console.log(e)*/ }
+	}
+}
+
+function savePlayerSpecs(name, email) {
+	storage.data.prefs.name = name;
+	storage.data.prefs.email = email;
+	storage.write();
+
+	// get global scores from server
+	ajaxReq({}, onGetUpdatedScoresSuccess, onGetUpdatedScoresFail);
+}
+
+function showForm() {
+
+    $('#form_box').show();
+
+}
+
+function showScores(arr) {
+	// insert div
+	if( !$('#highscore_box').length ) {
+		$('<div>').attr('id','highscore_box').insertBefore( "canvas" );
+		var domElm = new createjs.DOMElement('highscore_box');
+	} else {
+		$('#highscore_box').html('').show();
+	}
+	
+	// reorder from high to low
+	arr.sort(function (a, b) {
+		return parseInt(a.score) - parseInt(b.score);
+	});
+
+	// output
+	for (var i=0; i<arr.length; i++) {
+		var name = typeof arr[i].name != 'undefined'
+			? arr[i].name
+			: storage.data.prefs.name;
+		
+		$('#highscore_box').prepend( $('<div>').addClass('highscore_row').html('<span>'+(arr.length-i)+'</span><span>'+name+'</span><span>'+arr[i].score+'</span>') );
+	}
+}
+
+function highScores() {
+console.log(storage);
+    var localScores = storage.data.games;
+
+	// retrieve global scores if connected
+	// and if new highscore, push it to server
+    // if offline show local scoring
+console.log('connected '+connected)
+    if(connected) {
+		// get global scores from server
+		ajaxReq({}, onGetScoresSuccess, onGetScoresFail);
+	} else {
+		// no server connection, show local scores
+		showScores(localScores);
+	}
+}
+
+function onGetScoresSuccess(data, textStatus, jqXHR) {
+    var localScores = storage.data.games,
+		prefs = storage.data.prefs;
+		newLocalHighScore = false,
+		ret = [];
+
+	if(textStatus == 'success') {
+		try {
+			ret = JSON.parse(atob(data));
+		} catch(e) { /*console.log(e)*/ }
+		
+		if(ret.length) {
+console.log('got the online scores');
+
+			ret = ret.slice(0, onlineBoardLength);
+            
+            // is new local highscore?
+			if(localScores.length) {
+				localScores.sort(function (a, b) {
+					return parseInt(b.score) - parseInt(a.score);
+				});
+
+				if(localScores.length > 10) {
+					// shorten array
+					localScores = localScores.slice(0, 10);
+					
+                    storage.data.games = localScores;
+					storage.write();
+				}
+
+				// get date of highest score
+				var hi = localScores[0].date;
+				localScores.sort(function (a, b) {
+					return parseInt(b.date) - parseInt(a.date);
+				});
+
+				// compare hi to last date
+				newLocalHighScore = localScores[0].date == hi /*&& localScores.length > 1*/
+					? parseInt(localScores[0].score)
+					: false;
+
+//newLocalHighScore = 5000;
+console.log('newLocalHighScore '+newLocalHighScore)
+
+
+				if(newLocalHighScore) {
+console.log(ret);
+console.log(ret.length);
+console.log(ret[ret.length-1].score);
+                    // is new online highscore?
+                    var low = ret[ret.length-1].score;
+					var arr = [];
+                    if(low && newLocalHighScore > low) {
+                    
+                        var arr = jQuery.grep(ret, function(obj, i) {
+                            return parseInt(obj.score) > newLocalHighScore && obj.name != prefs.name;
+                        });			
+                    }
+console.log(arr);                       
+                    // push to server if player has valid username and email
+					if(arr.length && prefs.name != storage._data.prefs.name && prefs.email) {
+						// request a token
+						ajaxReq({data: {t: btoa(prefs.name + ":" + prefs.email)}}, onGetTokenSuccess, onGetTokenFail);
+					} else {
+						if(arr.length) {
+                            // ask for nick and email
+                            showScores(ret);
+                            playerSpecsDialog();
+                        } else {
+                            // no online highscore, show online scoreboard
+console.log('no online highscore, show online scoreboard');
+                            showScores(ret);
+                        }
+					}
+				} else {
+                    // not a local highscore
+console.log('not a local highscore');
+                    showScores(ret);
+                }
+			} else {
+                // no score, show online scoreboard
+console.log('no score, show online scoreboard');
+                showScores(ret);
+            }
+		} else {
+            // no server data, show local scoreboard
+console.log('no server data, show local scoreboard');
+			onGetScoresFail();
+		}
+	} else {
+        // no server data, show local scoreboard
+console.log('no server data, show local scoreboard');
+		onGetScoresFail(textStatus);
+	}
+}
+
+function onGetScoresFail(err) {
+	// show local scores
+	showScores( storage.data.games );
+console.log('Error: ' + err);
+}
+
+function onGetTokenSuccess(data, textStatus, jqXHR) {
+//console.log('onGetTokenSuccess');
+	var jwtoken, datStr;
+	if(textStatus == 'success') {
+		try {
+			jwtoken = JSON.parse( atob(data) );
+		} catch(e) { /*console.log(e)*/ }
+		storage.data.prefs.jwt = jwtoken;
+		storage.write();
+console.log('got the token');
+
+        // lets push stuff to server
+		datStr = btoa(JSON.stringify( {token: jwtoken.access_token, id: storage.data.prefs.deviceId, name: storage.data.prefs.name, score: storage.data.games[0].score} ));
+		ajaxReq({data: {d: datStr}}, onPushScoreSuccess, onPushScoreFail);
+	} else {
+		onGetTokenFail(textStatus);
+	}
+}
+
+function onGetTokenFail(err) {
+console.log('Error: ' + err);
+}
+
+function onPushScoreSuccess(data, textStatus, jqXHR) {
+	if(textStatus == 'success') {
+		var ret = [];
+		try {
+			ret = JSON.parse(atob(data));
+console.log(ret);
+		} catch(e) { console.log(e) }
+		
+		// get updated online scores
+		ajaxReq({}, onGetUpdatedScoresSuccess, onGetUpdatedScoresFail);
+	} else {
+		
+	}
+}
+
+function onPushScoreFail(err) {
+console.log('Error: ' + err);
+}
+
+function onGetUpdatedScoresSuccess(data, textStatus, jqXHR) {
+	if(textStatus == 'success') {
+		var ret = [];
+		try {
+			ret = JSON.parse(atob(data));
+		} catch(e) { /*console.log(e)*/ }
+		
+		if(ret.length) {
+console.log('got the updated online scores');
+console.log(ret);
+			showScores(ret);
+		} else {
+			onGetUpdatedScoresFail(textStatus);
+		}
+	} else {
+		onGetUpdatedScoresFail(textStatus);
+	}
+}
+
+function onGetUpdatedScoresFail(err) {
+	// show local scores
+	showScores( storage.data.games );
+	//console.log('Error: ' + err);
+}
+
+function ajaxReq(_options, successCallback, failCallback) {
+console.log('ajaxReq');
+    var options = {
+        url: sync_url,
+        method: 'POST',
+        cache: false,
+        username: 'demo',
+        password: 'mr-media',
+        crossDomain: true
+	};
+	$.extend(options, _options);
+	
+    $.ajax(options)
+    .done(function(data, textStatus, jqXHR) {
+		if(typeof successCallback == 'function') {
+			successCallback(data, textStatus, jqXHR);
+		}
+    })
+    .fail(function(err) {
+		if(typeof failCallback == 'function') {
+			failCallback(err);
+		} else {
+			console.log('Error: ' + err.status);
+		}
+    });
+    
 }
 
 function getEvenedRandInt(itmAtr, _randMin, _randMax, _raster, _maxQLen) {
@@ -693,11 +939,10 @@ Array.prototype.removeObj = function(key, val) {
     return i>-1 ? this.splice(i, 1) : [];
 };
 
-
 /* storage class */
 var Storage = function(_opts) {
 	this.id = 'storage';
-	this._data = { prefs: {deviceId: '', plyrName: 'jimdoe'}, games: [] };
+	this._data = { prefs: {deviceId: '', name: 'johndoe', email: '', jwt: ''}, games: [] };
 	this.data = this._data;
 	this.read();
 	this.hasId();
@@ -707,9 +952,9 @@ Storage.prototype.hasId = function() {
     if(this.data.prefs.deviceId) return;
 	
 	if(typeof device != 'undefined' && device.uuid) {
-		this.data.prefs.deviceId = window.btoa(device.uuid);
+		this.data.prefs.deviceId = device.uuid;//window.btoa(device.uuid);
 	} else {
-		this.data.prefs.deviceId = window.btoa(navigator.userAgent);
+		this.data.prefs.deviceId = navigator.userAgent;//window.btoa(navigator.userAgent);
 	}
 }
 

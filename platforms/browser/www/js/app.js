@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-var connected;
+var connected = false;
 var app = {
     // Application Constructor
     initialize: function() {
@@ -75,18 +75,21 @@ var app = {
         // try to connect to server
         $.support.cors = true;
         $.ajax({
-            url:  'http://mr-media.de',
+            url:  'https://mr-media.de/robots.txt',
             timeout: 3000,
-            cache: false
+            cache: false,
+            crossDomain: true
         })
-        .done(function(data, status) {
-            if(status == 'success')
+        .done(function(data, status, xhr) {
+console.log('init()'+status);
+            if(status == 'success' && data)
                 connected = true;
+            init();
         })
         .fail(function(err) {
             connected = false;
+            init();
         });
-
-        init();
     }
 };
+

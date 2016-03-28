@@ -1,0 +1,76 @@
+<form id="form" class="" enctype="multipart/form-data" action="" method="post" novalidate="novalidate">
+    <fieldset id="player">
+        <h3>Deine Daten:</h3>
+        <label for="name">Spielername</label><span class="input"></span><span class="prompt">&#219;&nbsp;</span>
+        <input id="name" name="name" type="text" value="" maxlength="80" size="25">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="text" value="" maxlength="80" size="25">
+    </fieldset>
+    <fieldset id="formbtns">
+        <button id="submit" name="" type="submit" class="btn">OK</button>
+    </fieldset>
+</form>
+
+<script language="javascript" type="text/javascript">
+    var u_name, u_email;
+    $.validator.addMethod("pattern", function(value, element, param) {
+        if (this.optional(element)) {
+            return true;
+        }
+        if (typeof param === "string") {
+            param = new RegExp(param);
+        }
+        return param.test(value);
+    }, "");
+
+    var validator = $("#form").validate({
+        errorPlacement: function(err, e) {
+            if( !$('#error-msg').length ) {
+                e.parent('fieldset').after('<span id="error-msg">');
+            }
+            $('#error-msg').html(err.html());
+
+            // add error-class elements parent
+            $(e).parent('div').addClass("error");
+        },
+        /*success: function(label, e) {
+            // remove error-class elements parent
+            if(e.type == 'checkbox') {
+                $(e).parent('div').removeClass("error");
+            }
+        },*/
+        submitHandler: function(form){
+            console.log(form);
+            u_name = $('#name').val();
+            u_email = $('#email').val();
+            ajaxReq({data: {t: btoa(u_name + ":" + u_email)}}, playerSpecsDialog, playerSpecsDialog);
+        },
+        debug: false
+    });
+
+    $( "#name" ).rules( "add", {
+        required: true,
+        pattern: "^[a-zA-Z0-9]{3,12}$",
+        remote: {
+            url: sync_url,
+            type: "post"
+        },
+        messages: {
+            //required: "Required input",
+            remote: "Spieler bereits registriert"
+        }
+    });
+
+    $( "#email" ).rules( "add", {
+        required: true,
+        pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$",
+        remote: {
+            url: sync_url,
+            type: "post"
+        },
+        messages: {
+            //required: "Required input",
+            remote: "Email bereits registriert"
+        } 
+    });
+</script>
