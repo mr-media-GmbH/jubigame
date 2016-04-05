@@ -2,7 +2,7 @@ var WIDTH = 640,//window.innerWidth,
     HEIGHT = 480,//window.innerHeight,
     FPS = 16,
     startSpeed = 0.5, // overall game speed
-    gamePlayTime = 25,
+    gamePlayTime = 15,
     reloadTimeout = 3000,
     fullMag = 8,
     enemyScoreArr = [1, 2, 5],
@@ -25,6 +25,7 @@ var touchSupported,
     crossHair,
     startScrn,
     gameScrn,
+    sndSwitch,
     targetCont,
     targets = [],
     container,
@@ -45,12 +46,12 @@ var touchSupported,
 
 function init(){
     /* Set up the Canvas with Size and height */
-    var canvas = document.getElementById('myCanvas');
+    var canvas = document.getElementById('mainCanvas');
     context = canvas.getContext('2d');
     context.canvas.width = WIDTH;
     context.canvas.height = HEIGHT;
-    //stage = new createjs.Stage("myCanvas");
-    stage = new createjs.SpriteStage("myCanvas", false, false);
+    stage = new createjs.Stage("mainCanvas");
+    //stage = new createjs.SpriteStage("mainCanvas", false, false);
     
     // hide mouse cursor when roll over the stage
     stage.canvas.style.cursor = "none";
@@ -69,20 +70,24 @@ function init(){
     queue.installPlugin(createjs.Sound);
     queue.on("progress", queueProgress, this);
     queue.on("complete", queueLoaded, this);
-    createjs.Sound.alternateExtensions = ["ogg"];
+    createjs.Sound.alternateExtensions = ["ogg", "wav"];
 
     /* Create a load manifest for all assets */
     queue.loadManifest([
         {id: 'backgroundImage', src: 'assets/background.png'},
         {id: 'crossHair', src: 'assets/crosshair.png'},
         {id: 'shot', src: 'assets/shot.mp3'},
+        {id: 'reload', src: 'assets/reload.mp3'},
+        {id: 'logobumper', src: 'assets/logobumper_oneshot.mp3'},
         {id: 'menu_loop', src: 'assets/menue_score_loop.mp3'},
         {id: 'game_loop', src: 'assets/ingame_loop.mp3'},
-        {id: 'gameOverSound', src: 'assets/gameOver.mp3'},
-        {id: 'tick', src: 'assets/tick.mp3'},
-        {id: 'deathSound', src: 'assets/die.mp3'},
+        //{id: 'gameOverSound', src: 'assets/gameOver.mp3'},
+        //{id: 'tick', src: 'assets/tick.mp3'},
+        {id: 'deathSound', src: 'assets/blast.mp3'},
         {id: 'Spritesheet', src: 'assets/DroneSpritesheet.png'},
         {id: 'Death', src: 'assets/droneDeath.png'},
+        {id: 'SoundOff', src: 'assets/volume-off.png'},
+        {id: 'SoundOn', src: 'assets/volume-up.png'}
     ]);
     queue.load();
     
@@ -91,8 +96,10 @@ function init(){
 }
 
 function queueProgress(evt) {
-    //$("#mainProgress > .progress").width(queue.progress * $("#mainProgress").width());
-//    console.log(Math.round(100 * queue.progress));
+    var perc = Math.round(100 * queue.progress);
+    if(perc <= 100) {
+        $("#mainProgress > .progress").width(Math.round(100 * queue.progress)+'%');
+    }
 }
 
 function queueLoaded(evt) {
@@ -120,6 +127,12 @@ function queueLoaded(evt) {
     gameScrn();
     startScrn();
     stage.setChildIndex(crossHair, stage.numChildren-1);
+
+    // remove loading screen
+    $('#loading_box').delay(1000).fadeOut("slow", function() {
+        this.remove();
+    });
+    
 //console.log('crossHair '+stage.getChildIndex(crossHair));
 //console.log('startScrn '+stage.getChildIndex(startScrn));
 //console.log('gameScrn '+stage.getChildIndex(gameScrn));
@@ -134,6 +147,36 @@ function startScrn() {
     var bg = new createjs.Shape();
     bg.graphics.beginFill("#000").drawRect(0, 0, WIDTH, HEIGHT);
 
+    
+    // Sound switch
+    sndSwitch = new createjs.Container();
+    var SoundOff = new createjs.Bitmap(queue.getResult("SoundOff"))
+    sndSwitch.addChild(SoundOff);
+    var SoundOn = new createjs.Bitmap(queue.getResult("SoundOn"))
+    sndSwitch.addChild(SoundOn);
+    
+    var hit = new createjs.Shape();
+    hit.graphics.beginFill("#ff0000").drawRect(0, 0, sndSwitch.getBounds().width, sndSwitch.getBounds().height);
+    sndSwitch.hitArea = hit;
+//    sndSwitch.addChild(hit)
+
+    SoundOff.x = -12;
+    createjs.Sound.muted = storage.data.prefs.muted;
+    SoundOff.visible = createjs.Sound.muted;
+    SoundOn.visible = !createjs.Sound.muted;
+    sndSwitch.addEventListener("click", function(event) {
+        createjs.Sound.muted = !createjs.Sound.muted;
+        SoundOff.visible = createjs.Sound.muted;
+        SoundOn.visible = !createjs.Sound.muted;
+        storage.data.prefs.muted = createjs.Sound.muted;
+        storage.write();
+    });
+    sndSwitch.x = 10;
+    sndSwitch.y = HEIGHT - 10 - sndSwitch.getBounds().height / 2;
+    sndSwitch.scaleX = 0.6;
+    sndSwitch.scaleY = 0.6;
+    console.log(sndSwitch.getBounds());
+    
     // start button
     startBtn = new createjs.Container();
     
@@ -144,10 +187,17 @@ function startScrn() {
     hit.graphics.beginFill("#000").drawRect(0, 0, WIDTH, HEIGHT);
     btnTxt.hitArea = hit;
     btnTxt.addEventListener('mousedown', function() {
-        createjs.Sound.play("shot");
-        startScrn.visible = 0;
         createjs.Sound.stop("menu_loop");
-		$('#highscore_box').hide();
+        createjs.Sound.play("shot");
+        
+        startScrn.visible = 0;
+        		
+        $('#highscore_box').hide();
+
+        timerText.text = "Time: " + gameTime.toString();
+        scoreText.text = "1UP: 0";
+        score = 0;
+    
         countDown(3);
     });
 /*    btnTxt.ontouchstart = function() {
@@ -159,13 +209,14 @@ function startScrn() {
     startBtn.x = WIDTH / 2 - startBtn.getBounds().width / 2;
     startBtn.y = HEIGHT / 2 - startBtn.getBounds().height / 2;
     startScrn.addChild(bg);
+    startScrn.addChild(sndSwitch);
     startScrn.addChild(startBtn);
     stage.addChild(startScrn);
 
 var x = getEvenedRandInt('x', 5000, 20000, 100, 10);
 //console.log('new score '+x);        
 //storage.clear();
-//storage.pushData('games', 'score', x);
+//storage.pushData('games', 'score', 500);
     showStartScrn();
 }
 
@@ -173,16 +224,14 @@ function showStartScrn() {
     
      // Play background sound
     var snd_background = createjs.Sound.play("menu_loop", {loop: -1});
-    snd_background.volume = 1.0;
+    snd_background.volume = 0.5;
 
-    createjs.Sound.registerSound('assets/shot.mp3', 'shot');
+//    createjs.Sound.registerSound('assets/reload.mp3', 'reload');
+//    createjs.Sound.registerSound('assets/shot.mp3', 'shot');
 
     startScrn.alpha = 0;
     startScrn.visible = 1;
-    createjs.Tween.get(startScrn).to({alpha: 1}, 250).call(function() {
-        timerText.text = "Time: " + gameTime.toString();
-        scoreText.text = "1UP: " + score.toString();
-    });
+    createjs.Tween.get(startScrn).to({alpha: 1}, 250);
     
     // kill events
     if(touchSupported) {
@@ -258,21 +307,21 @@ function gameScrn() {
 function playGame() {
     
     // game music
-    createjs.Sound.play("game_loop", {loop: -1});
-    
+    var snd_background = createjs.Sound.play("game_loop", {loop: -1});
+    snd_background.volume = 0.4;
     
     // Create  spritesheet
     spriteSheet = new createjs.SpriteSheet({
         "images": [queue.getResult('Spritesheet')],
         "frames": {"width": 198, "height": 117},
-        "animations": { "flap": [0,4] }
+        "animations": { "fly": [0, 4, 'fly', 2] }
     });
 
     // Create  death spritesheet
     DeathSpriteSheet = new createjs.SpriteSheet({
     	"images": [queue.getResult('Death')],
     	"frames": {"width": 198, "height" : 148},
-    	"animations": {"die": [0,7, false,1 ] }
+    	"animations": {"die": [0, 6, false, 0.5] }
     });
 
    // Create sprites
@@ -298,14 +347,18 @@ function createTarget() {
 //    setTimeout(function() {
     
         // create inner animation
-        var anim = new createjs.Sprite(spriteSheet, "flap");
+        var anim = new createjs.Sprite(spriteSheet, "fly");
         anim.regX = 99;
         anim.regY = 58;
-        anim.gotoAndPlay("flap");
+        anim.gotoAndPlay("fly");
 
         // create container
         var itm = new createjs.Container();
-        itm.addChild(anim);
+
+        // create up/down anim container
+        var animCont = new createjs.Container();
+        animCont.addChild(anim);
+        itm.addChild(animCont);
 
         // set up direction, z-level and associated speed
         itm.xDir = getRandomInt(0, 1) ? -1 : 1; // -1 = move left, +1 = move right
@@ -334,15 +387,15 @@ function createTarget() {
 //console.log('a ' + a + ' b ' + b + ' c ' + c);
 
         // up/down movement (all)
-        createjs.Tween.get(anim, {loop: true}).to({y: anim.y + getRandomInt(itm.height/2, itm.height-itm.height/4)}, getRandomInt(700, 850), Ease.backInOut).call(function() {});
+        createjs.Tween.get(animCont, {loop: true}).to({y: anim.y + getRandomInt(itm.height/2, itm.height-itm.height/4)}, getRandomInt(700, 850), Ease.backInOut).call(function() {});
 
         var hit = new createjs.Shape();
-        hit.graphics.beginFill("#000").drawRect(itm.width/2*-1, itm.height/2*-1, itm.width, itm.height);
-        itm.hitArea = hit;
-//        itm.addChild(hit)
+        hit.graphics.beginFill("#ff0000").drawRect(itm.width/2*-1, itm.height/2*-1, itm.width, itm.height);
+        animCont.hitArea = hit;
+//        animCont.addChild(hit)
         // mouse down actions
         itm.on("mousedown", function (evt) {
-    //console.log(evt.currentTarget.id);
+//console.log(evt.currentTarget.id);
             if(reloading) return;
             
             Death(evt.currentTarget);
@@ -355,7 +408,7 @@ function createTarget() {
             targets.push(createTarget());
 
             score += 100 * evt.currentTarget.score;
-            scoreText.text = "1UP: " + score.toString();
+            scoreText.text = "SCORE: " + score.toString();
             
             speed = speed + 0.05;
         });
@@ -393,9 +446,13 @@ function Death(_target) {
 	anim.gotoAndPlay("die");
 	targetCont.addChild(anim);
 
-	// points
+	createjs.Tween.get(anim).to({y: anim.y + 200 * anim.scaleX, x: anim.x + 50 * anim.scaleX * _target.xDir}, 1000, Ease.sineIn()).call(function() {
+        targetCont.removeChild(anim);
+	});
+
+    // points
 	if(gameTime) {
-		var bubble = new createjs.Text(100 * _target.score, mainFontSize + mainFontFam, "#FFF");
+		var bubble = new createjs.Text('+' + 100 * _target.score, mainFontSize + mainFontFam, "#FFF");
 		bubble.x = _target.x;
 		bubble.y = _target.y;
 		bubble.regX = bubble.getBounds().width / 2;
@@ -495,6 +552,8 @@ function handleDown(evt) {
         crossHair.scaleY = 1;
         createjs.Tween.get(crossHair, {loop: true}).to({alpha: 0}, 200, Ease.getPowInOut(2.2));
         
+        createjs.Sound.play("reload", {delay: reloadTimeout - 1000});
+
         reloading = window.setTimeout(function() {
             clearInterval(reloading);
             reloading = false;
@@ -519,8 +578,9 @@ function updateTime() {
 		
 //        stage.removeChild(crossHair);
         
-        createjs.Sound.removeSound("shot");
-        createjs.Sound.stop("game_loop");
+        createjs.Sound.stop();
+//        createjs.Sound.removeSound("shot");
+//        createjs.Sound.stop("game_loop");
 //        var si = createjs.Sound.play("gameOverSound");
 		
         createjs.Tween.removeTweens(crossHair);
@@ -534,9 +594,12 @@ function updateTime() {
             storage.pushData('games', 'score', score);
         }
         
+//        createjs.Sound.removeSound("reload");
+        clearInterval(reloading);
+        reloading = false;
         
         speed = startSpeed;
-		score = 0;
+//		score = 0;
         shotsLeft = fullMag;
 
         gameTime = gamePlayTime;
@@ -557,18 +620,25 @@ function playerSpecsDialog(data, textStatus, jqXHR) {
             var insert = false;
             $.each($('#highscore_box div'), function( k, v ) {
                 var scr = $('span:nth-child(3)', v).text();
-                if(!insert && newLocalHighScore > scr) {
-                    $('<div>').addClass('highscore_row').attr('id','form_box').insertBefore( this );
+                if(!insert && (newLocalHighScore > scr || k+1 == $('#highscore_box div').length)) {
+console.log(k+1);            
+console.log($('#highscore_box div').length);            
+                    var place = k+1;
+                    if(k+1 == $('#highscore_box div').length) {
+                        $('<div>').addClass('highscore_row').attr('id','form_box').insertAfter( this );
+                        place++;
+                    } else {
+                        insert = true;
+                        $('<div>').addClass('highscore_row').attr('id','form_box').insertBefore( this );
+                    }
                     $('#form_box').html(data).show();
-                    $('#form_box > span:nth-child(1)').text(k+1);
+                    $('#form_box > span:nth-child(1)').text(place);
                     $('#form_box > span:nth-child(3)').text(newLocalHighScore);
 
                     $('#form_box #name').addClass('blink').attr('placeholder', storage._data.prefs.name).focus();
                     $('#form_box #email').addClass('blink').attr('placeholder', 'EMailadresse');//.hide();
 
-                    insert = true;
                 }
-                
                 if(insert) {
                     $('span:nth-child(1)', v).text(k+2);
                     if(k+1 >= onlineBoardLength) {
@@ -576,7 +646,6 @@ function playerSpecsDialog(data, textStatus, jqXHR) {
                     }
                 }
             });
-
         }); 
 //        $('canvas').hide();
 
@@ -614,7 +683,7 @@ function showForm() {
 
 }
 
-function showScores(arr) {
+function showScores(arr, _score) {
 	// insert div
 	if( !$('#highscore_box').length ) {
 		$('<div>').attr('id','highscore_box').insertBefore( "canvas" );
@@ -636,6 +705,11 @@ function showScores(arr) {
 		
 		$('#highscore_box').prepend( $('<div>').addClass('highscore_row').html('<span>'+(arr.length-i)+'</span><span>'+name+'</span><span>'+arr[i].score+'</span>') );
 	}
+    if(_score) {
+		$('#highscore_box')
+        .append( $('<div>').addClass('highscore_row').html('<span>&nbsp;</span>') )
+        .append( $('<div>').addClass('highscore_row').html('<span>?</span><span>'+storage.data.prefs.name+'</span><span>'+_score+'</span>') );
+    }
 }
 
 function highScores() {
@@ -714,25 +788,28 @@ console.log(ret[ret.length-1].score);
                         });			
                     }
 console.log(arr);                       
+                    var newOnlineHighScore = arr.length || ret.length < onlineBoardLength;
+console.log('newOnlineHighScore '+newOnlineHighScore);                       
+                    
                     // push to server if player has valid username and email
-					if(arr.length && prefs.name != storage._data.prefs.name && prefs.email) {
+					if(newOnlineHighScore && prefs.name != storage._data.prefs.name && prefs.email) {
 						// request a token
 						ajaxReq({data: {t: btoa(prefs.name + ":" + prefs.email)}}, onGetTokenSuccess, onGetTokenFail);
 					} else {
-						if(arr.length) {
+						if(newOnlineHighScore) {
                             // ask for nick and email
                             showScores(ret);
                             playerSpecsDialog();
                         } else {
                             // no online highscore, show online scoreboard
 console.log('no online highscore, show online scoreboard');
-                            showScores(ret);
+                            showScores(ret, score);
                         }
 					}
 				} else {
                     // not a local highscore
 console.log('not a local highscore');
-                    showScores(ret);
+                    showScores(ret, score);
                 }
 			} else {
                 // no score, show online scoreboard
@@ -942,7 +1019,7 @@ Array.prototype.removeObj = function(key, val) {
 /* storage class */
 var Storage = function(_opts) {
 	this.id = 'storage';
-	this._data = { prefs: {deviceId: '', name: 'johndoe', email: '', jwt: ''}, games: [] };
+	this._data = { prefs: {deviceId: '', name: 'Spieler', email: '', muted: false, jwt: ''}, games: [] };
 	this.data = this._data;
 	this.read();
 	this.hasId();

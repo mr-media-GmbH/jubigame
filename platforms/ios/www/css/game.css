@@ -1,5 +1,26 @@
-#myCanvas   {
+#mainCanvas   {
                   
+}
+
+#loading_box {
+    position: absolute;
+    transform-origin: 0% 0% 0px;    
+    width: 640px;
+	height: 480px;
+	background-color: rgba(0, 0, 0, 1.0);
+}
+#mainProgress {
+    position: relative;
+    top: 300px;
+    width: 60%;
+    height: 10px;
+    margin: 0 auto;
+    border: 1px solid #fff;
+}
+.progress {
+    background-color: chartreuse;
+    width: 0;
+    height: 100%;
 }
 
 #highscore_box {

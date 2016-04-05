@@ -7,10 +7,10 @@
         "files": {}
     },
     "installed_plugins": {
-        "cordova-plugin-whitelist": {
+        "cordova-plugin-dialogs": {
             "PACKAGE_NAME": "com.phonegap.helloworld"
         },
-        "cordova-plugin-dialogs": {
+        "cordova-plugin-network-information": {
             "PACKAGE_NAME": "com.phonegap.helloworld"
         },
         "cordova-plugin-screen-orientation": {
@@ -19,7 +19,7 @@
         "cordova-plugin-statusbar": {
             "PACKAGE_NAME": "com.phonegap.helloworld"
         },
-        "cordova-plugin-network-information": {
+        "cordova-plugin-whitelist": {
             "PACKAGE_NAME": "com.phonegap.helloworld"
         }
     },
@@ -39,30 +39,6 @@
             "pluginId": "cordova-plugin-dialogs",
             "merges": [
                 "navigator.notification"
-            ]
-        },
-        {
-            "file": "plugins/cordova-plugin-screen-orientation/www/screenorientation.js",
-            "id": "cordova-plugin-screen-orientation.screenorientation",
-            "pluginId": "cordova-plugin-screen-orientation",
-            "clobbers": [
-                "cordova.plugins.screenorientation"
-            ]
-        },
-        {
-            "file": "plugins/cordova-plugin-statusbar/www/statusbar.js",
-            "id": "cordova-plugin-statusbar.statusbar",
-            "pluginId": "cordova-plugin-statusbar",
-            "clobbers": [
-                "window.StatusBar"
-            ]
-        },
-        {
-            "file": "plugins/cordova-plugin-statusbar/src/browser/statusbar.js",
-            "id": "cordova-plugin-statusbar.statusbar.Browser",
-            "pluginId": "cordova-plugin-statusbar",
-            "merges": [
-                "window.StatusBar"
             ]
         },
         {
@@ -87,13 +63,37 @@
             "id": "cordova-plugin-network-information.NetworkInfoProxy",
             "pluginId": "cordova-plugin-network-information",
             "runs": true
+        },
+        {
+            "file": "plugins/cordova-plugin-screen-orientation/www/screenorientation.js",
+            "id": "cordova-plugin-screen-orientation.screenorientation",
+            "pluginId": "cordova-plugin-screen-orientation",
+            "clobbers": [
+                "cordova.plugins.screenorientation"
+            ]
+        },
+        {
+            "file": "plugins/cordova-plugin-statusbar/www/statusbar.js",
+            "id": "cordova-plugin-statusbar.statusbar",
+            "pluginId": "cordova-plugin-statusbar",
+            "clobbers": [
+                "window.StatusBar"
+            ]
+        },
+        {
+            "file": "plugins/cordova-plugin-statusbar/src/browser/statusbar.js",
+            "id": "cordova-plugin-statusbar.statusbar.Browser",
+            "pluginId": "cordova-plugin-statusbar",
+            "merges": [
+                "window.StatusBar"
+            ]
         }
     ],
     "plugin_metadata": {
-        "cordova-plugin-whitelist": "1.2.1",
         "cordova-plugin-dialogs": "1.2.0",
+        "cordova-plugin-network-information": "1.2.0",
         "cordova-plugin-screen-orientation": "1.4.0",
         "cordova-plugin-statusbar": "2.1.1",
-        "cordova-plugin-network-information": "1.2.0"
+        "cordova-plugin-whitelist": "1.2.1"
     }
 }
