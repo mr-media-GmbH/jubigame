@@ -34,9 +34,9 @@ var app = {
     // The scope of 'this' is the event. In order to call the 'receivedEvent'
     // function, we must explicitly call 'app.receivedEvent(...);'
     onDeviceReady: function() {
-        StatusBar.hide();
-        StatusBar.overlaysWebView(false);
-        screen.lockOrientation('landscape');
+//        StatusBar.hide();
+//        StatusBar.overlaysWebView(false);
+//        screen.lockOrientation('landscape');
         app.receivedEvent('deviceready');
 
         document.addEventListener('online', app.onOnline, false);
@@ -54,18 +54,18 @@ var app = {
     receivedEvent: function(id) {
         console.log('event: ' + id);
 //console.log(window.device);
-	/*      window.alert = navigator.notification.alert;
-      function alertDismissed() {
-          console.log(window.device);
-      }
+        window.alert = navigator.notification.alert;
+        function alertDismissed() {
+            console.log(window.device);
+        }
 
-      navigator.notification.alert(
-          'You are the winner!',  // message
-          alertDismissed,         // callback
-          'Game Over',            // title
-          'Done'                  // buttonName
-      );
-
+        navigator.notification.alert(
+            'You are the winner!',  // message
+            alertDismissed,         // callback
+            'Game Over',            // title
+            'Done'                  // buttonName
+        );
+/*
         window.addEventListener("orientationchange", function(){
             console.log(screen.orientation);
         });
@@ -73,7 +73,7 @@ var app = {
         setInterval(function(){console.log(navigator.connection)}, 1000);
 */
         // try to connect to server
-        $.support.cors = true;
+/*        $.support.cors = true;
         $.ajax({
             url:  'https://mr-media.de/robots.txt',
             timeout: 3000,
@@ -89,7 +89,7 @@ console.log('init()'+status);
         .fail(function(err) {
             connected = false;
             init();
-        });
+        });*/
     }
 };
 
