@@ -36,7 +36,7 @@ var app = {
     onDeviceReady: function() {
 //        StatusBar.hide();
 //        StatusBar.overlaysWebView(false);
-//        screen.lockOrientation('landscape');
+        screen.lockOrientation('landscape');
         app.receivedEvent('deviceready');
 
         document.addEventListener('online', app.onOnline, false);
