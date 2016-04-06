@@ -65,6 +65,7 @@ var app = {
             'Game Over',            // title
             'Done'                  // buttonName
         );
+        init();
 /*
         window.addEventListener("orientationchange", function(){
             console.log(screen.orientation);
